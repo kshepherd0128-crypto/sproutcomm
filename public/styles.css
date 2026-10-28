@@ -747,6 +747,47 @@ select {
   font-size: 14px;
 }
 
+/* ---------- completion sheet ---------- */
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: #fffdf8;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chip.selected {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.sheet h2 {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+.sheet .field-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 8px;
+  display: block;
+}
+
 /* ---------- inbox ---------- */
 
 .note-card .translated {

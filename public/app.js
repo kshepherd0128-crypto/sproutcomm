@@ -9,10 +9,10 @@ const root = document.getElementById('app');
  * ------------------------------------------------------------------ */
 
 const UI_TEXT = {
-  ar: { listen: 'استمع', weDidIt: 'أنجزنا النشاط', voiceNote: 'ملاحظة صوتية', activity: 'نشاط الليلة', prompt: 'اسألوا طفلكم', minutes: 'دقائق', sent: 'تم الإرسال', done: 'وصلت ملاحظتكم', record: 'اضغط للتسجيل', stop: 'إيقاف', send: 'إرسال', cancel: 'إلغاء', chooseFile: 'اختيار تسجيل من الهاتف', sentNote: 'وصلت ملاحظتكم الصوتية', micOff: 'الميكروفون غير متاح. اختاروا تسجيلاً من هاتفكم.', rtl: true },
-  bn: { listen: 'শুনুন', weDidIt: 'আমরা করেছি', voiceNote: 'কণ্ঠ বার্তা', activity: 'আজ রাতের কাজ', prompt: 'সন্তানকে জিজ্ঞাসা করুন', minutes: 'মিনিট', sent: 'পাঠানো হয়েছে', done: 'আপনার বার্তা পৌঁছেছে', record: 'রেকর্ড করতে চাপুন', stop: 'থামুন', send: 'পাঠান', cancel: 'বাতিল', chooseFile: 'ফোন থেকে রেকর্ডিং বাছুন', sentNote: 'আপনার কণ্ঠ বার্তা পৌঁছেছে', micOff: 'মাইক ব্যবহার করা যাচ্ছে না। ফোন থেকে রেকর্ডিং বেছে নিন।', rtl: false },
-  en: { listen: 'Listen', weDidIt: 'We did it', voiceNote: 'Voice note', activity: "Tonight's activity", prompt: 'Ask your child', minutes: 'min', sent: 'Sent', done: 'Your note was delivered', record: 'Tap to record', stop: 'Stop', send: 'Send', cancel: 'Cancel', chooseFile: 'Choose a recording', sentNote: 'Your voice note was delivered', micOff: 'The microphone is not available. Choose a recording from your phone.', rtl: false },
-  syl: { listen: 'শুনুন', weDidIt: 'আমরা করেছি', voiceNote: 'কণ্ঠ বার্তা', activity: 'আজ রাতের কাজ', prompt: 'সন্তানকে জিজ্ঞাসা করুন', minutes: 'মিনিট', sent: 'পাঠানো হয়েছে', done: 'আপনার বার্তা পৌঁছেছে', record: 'রেকর্ড করতে চাপুন', stop: 'থামুন', send: 'পাঠান', cancel: 'বাতিল', chooseFile: 'ফোন থেকে রেকর্ডিং বাছুন', sentNote: 'আপনার কণ্ঠ বার্তা পৌঁছেছে', micOff: 'মাইক ব্যবহার করা যাচ্ছে না। ফোন থেকে রেকর্ডিং বেছে নিন।', rtl: false }
+  ar: { listen: 'استمع', weDidIt: 'أنجزنا النشاط', voiceNote: 'ملاحظة صوتية', activity: 'نشاط الليلة', prompt: 'اسألوا طفلكم', minutes: 'دقائق', sent: 'تم الإرسال', done: 'وصلت ملاحظتكم', record: 'اضغط للتسجيل', stop: 'إيقاف', send: 'إرسال', cancel: 'إلغاء', chooseFile: 'اختيار تسجيل من الهاتف', sentNote: 'وصلت ملاحظتكم الصوتية', micOff: 'الميكروفون غير متاح. اختاروا تسجيلاً من هاتفكم.', whoJoined: 'من شارك الليلة؟', howLong: 'كم استغرق النشاط؟', confirm: 'تأكيد', noteSaved: 'تم التسجيل في ملف عائلتكم', savedOffline: 'تم الحفظ على هاتفكم. سيُرسل عند عودة الاتصال.', joined: { parent: 'أنا فقط', parent_child: 'أنا وطفلي', whole_family: 'كل العائلة', other_adult: 'شخص بالغ آخر' }, rtl: true },
+  bn: { listen: 'শুনুন', weDidIt: 'আমরা করেছি', voiceNote: 'কণ্ঠ বার্তা', activity: 'আজ রাতের কাজ', prompt: 'সন্তানকে জিজ্ঞাসা করুন', minutes: 'মিনিট', sent: 'পাঠানো হয়েছে', done: 'আপনার বার্তা পৌঁছেছে', record: 'রেকর্ড করতে চাপুন', stop: 'থামুন', send: 'পাঠান', cancel: 'বাতিল', chooseFile: 'ফোন থেকে রেকর্ডিং বাছুন', sentNote: 'আপনার কণ্ঠ বার্তা পৌঁছেছে', micOff: 'মাইক ব্যবহার করা যাচ্ছে না। ফোন থেকে রেকর্ডিং বেছে নিন।', whoJoined: 'আজ কে কে ছিলেন?', howLong: 'কাজটি কত সময় নিয়েছে?', confirm: 'নিশ্চিত করুন', noteSaved: 'আপনার পরিবারের ফাইলে লিপিবদ্ধ হয়েছে', savedOffline: 'ফোনে সংরক্ষিত হয়েছে। ইন্টারনেট ফিরলে পাঠানো হবে।', joined: { parent: 'শুধু আমি', parent_child: 'আমি ও আমার সন্তান', whole_family: 'পুরো পরিবার', other_adult: 'অন্য একজন প্রাপ্তবয়স্ক' }, rtl: false },
+  en: { listen: 'Listen', weDidIt: 'We did it', voiceNote: 'Voice note', activity: "Tonight's activity", prompt: 'Ask your child', minutes: 'min', sent: 'Sent', done: 'Your note was delivered', record: 'Tap to record', stop: 'Stop', send: 'Send', cancel: 'Cancel', chooseFile: 'Choose a recording', sentNote: 'Your voice note was delivered', micOff: 'The microphone is not available. Choose a recording from your phone.', whoJoined: 'Who joined tonight?', howLong: 'How long did it take?', confirm: 'Confirm', noteSaved: "Added to your family's file", savedOffline: 'Saved on your phone. It will be sent when you are back online.', joined: { parent: 'Just me', parent_child: 'Me and my child', whole_family: 'Whole family', other_adult: 'Another adult' }, rtl: false },
+  syl: { listen: 'শুনুন', weDidIt: 'আমরা করেছি', voiceNote: 'কণ্ঠ বার্তা', activity: 'আজ রাতের কাজ', prompt: 'সন্তানকে জিজ্ঞাসা করুন', minutes: 'মিনিট', sent: 'পাঠানো হয়েছে', done: 'আপনার বার্তা পৌঁছেছে', record: 'রেকর্ড করতে চাপুন', stop: 'থামুন', send: 'পাঠান', cancel: 'বাতিল', chooseFile: 'ফোন থেকে রেকর্ডিং বাছুন', sentNote: 'আপনার কণ্ঠ বার্তা পৌঁছেছে', micOff: 'মাইক ব্যবহার করা যাচ্ছে না। ফোন থেকে রেকর্ডিং বেছে নিন।', whoJoined: 'আজ কে কে ছিলেন?', howLong: 'কাজটি কত সময় নিয়েছে?', confirm: 'নিশ্চিত করুন', noteSaved: 'আপনার পরিবারের ফাইলে লিপিবদ্ধ হয়েছে', savedOffline: 'ফোনে সংরক্ষিত হয়েছে। ইন্টারনেট ফিরলে পাঠানো হবে।', joined: { parent: 'শুধু আমি', parent_child: 'আমি ও আমার সন্তান', whole_family: 'পুরো পরিবার', other_adult: 'অন্য একজন প্রাপ্তবয়স্ক' }, rtl: false }
 };
 
 const ui = (code) => UI_TEXT[code] ?? UI_TEXT.en;
@@ -60,7 +60,10 @@ const state = {
   booting: false,
   inbox: null,
   inboxKey: '',
-  record: { open: false, phase: 'idle', seconds: 0, error: null, blob: null, previewUrl: null }
+  record: { open: false, phase: 'idle', seconds: 0, error: null, blob: null, previewUrl: null },
+  retryingNote: null,
+  familyDetailJson: '',
+  complete: { open: false, participants: 'parent_child', minutes: 10, busy: false, error: null, done: false, queued: false, clientId: null }
 };
 
 const SESSION_KEY = 'sproutcomm.session';
@@ -348,6 +351,49 @@ function renderSendResult(result) {
     </div>`;
 }
 
+function formatNote(text) {
+  return esc(text || '')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^- /gm, '• ');
+}
+
+function renderNoteCard(n) {
+  if (n.status === 'pending') {
+    return `
+      <div class="card" style="padding:14px;border-color:#f2ddc0;background:#fffdf8">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <span class="tag amber">${esc(n.standard)}</span>
+          <span class="small muted">${esc(fmtDate(n.created_at))}</span>
+        </div>
+        <p class="small"><span class="status-dot wait"></span><strong>Documentation in progress.</strong> The completion is recorded; the 1302.50 note is being written.</p>
+      </div>`;
+  }
+
+  if (n.status === 'failed') {
+    return `
+      <div class="card" style="padding:14px;border-color:#f0cccc;background:#fffafa">
+        <div class="row" style="justify-content:space-between;margin-bottom:8px">
+          <span class="tag amber">${esc(n.standard)}</span>
+          <span class="small muted">${esc(fmtDate(n.created_at))}</span>
+        </div>
+        <p class="small"><strong>Documentation could not be generated.</strong> The completion is recorded and stands on its own.</p>
+        <p class="small muted" style="margin-top:6px">${esc(n.error || 'No note was produced.')}</p>
+        <button class="btn btn-ghost" style="min-height:44px;margin-top:10px" data-action="retry-note" data-event="${esc(n.event_id || '')}" ${state.retryingNote ? 'disabled' : ''}>
+          ${state.retryingNote === n.event_id ? 'Retrying…' : 'Retry the note'}
+        </button>
+      </div>`;
+  }
+
+  return `
+    <div class="card" style="padding:14px">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <span class="tag amber">${esc(n.standard)}</span>
+        <span class="small muted">${esc(fmtDate(n.created_at))}</span>
+      </div>
+      <div class="note-body">${formatNote(n.body)}</div>
+    </div>`;
+}
+
 function renderFamilyDetail() {
   const d = state.familyDetail;
   if (!d) {
@@ -393,14 +439,7 @@ function renderFamilyDetail() {
       <div class="section-title">Documentation file</div>
       ${d.notes.length === 0
         ? '<div class="empty">No documentation yet. Notes appear here after a family confirms an activity.</div>'
-        : d.notes.map((n) => `
-            <div class="card" style="padding:14px">
-              <div class="row" style="justify-content:space-between;margin-bottom:8px">
-                <span class="tag amber">${esc(n.standard)}</span>
-                <span class="small muted">${esc(fmtDate(n.created_at))}</span>
-              </div>
-              <div class="note-body">${esc(n.body)}</div>
-            </div>`).join('')}
+        : d.notes.map(renderNoteCard).join('')}
     </div>
   </div>`;
 }
@@ -435,7 +474,7 @@ function renderThreadItem(m) {
           ${r.transcript_en ? `<div style="margin-top:8px">${esc(r.transcript_en)}</div>` : ''}
         </div>`).join('') : ''}
 
-      ${m.notes.length ? `<div class="small" style="color:#a85b12">${ICON.doc} 1302.50 note in the family file</div>` : ''}
+      ${m.notes.length ? `<div class="small" style="color:#a85b12">${ICON.doc} ${m.notes[0].status === 'pending' ? '1302.50 note in progress' : m.notes[0].status === 'failed' ? '1302.50 note failed — see the file' : '1302.50 note in the family file'}</div>` : ''}
     </div>`;
 }
 
@@ -547,6 +586,7 @@ function renderParent() {
       </button>
     </div>
     ${state.record.open ? renderRecorder(t) : ''}
+    ${state.complete.open ? renderComplete(t) : ''}
   </div>`;
 }
 
@@ -601,6 +641,7 @@ function speak() {
   window.speechSynthesis.speak(utter);
   render();
 }
+
 
 
 /* ------------------------------------------------------------------ *
@@ -772,6 +813,122 @@ function renderRecorder(t) {
     </div>`;
 }
 
+
+/* ------------------------------------------------------------------ *
+ * "We did it" completion
+ * ------------------------------------------------------------------ */
+
+function openComplete() {
+  const message = state.parentFeed?.message;
+  if (!message || message.status === 'completed') return;
+  clearTimeout(closeTimer);
+  state.complete = {
+    open: true,
+    participants: 'parent_child',
+    minutes: message.activity.minutes || 10,
+    busy: false,
+    error: null,
+    done: false,
+    queued: false,
+    clientId: crypto.randomUUID()
+  };
+  render();
+}
+
+function closeComplete({ refresh = false } = {}) {
+  const wasDone = state.complete.done;
+  state.complete = {
+    open: false,
+    participants: 'parent_child',
+    minutes: 10,
+    busy: false,
+    error: null,
+    done: false,
+    queued: false,
+    clientId: null
+  };
+  render();
+  if (refresh || wasDone) loadParentFeed();
+}
+
+async function confirmComplete() {
+  const c = state.complete;
+  const message = state.parentFeed?.message;
+  if (!c.open || c.busy || !message) return;
+
+  c.busy = true;
+  c.error = null;
+  render();
+
+  try {
+    await api('/api/parent/complete', {
+      method: 'POST',
+      body: {
+        message_id: message.id,
+        participants: c.participants,
+        activity_minutes: c.minutes,
+        client_id: c.clientId
+      }
+    });
+    c.done = true;
+    c.busy = false;
+    render();
+    closeTimer = setTimeout(() => closeComplete({ refresh: true }), 1900);
+  } catch (err) {
+    c.busy = false;
+    c.error = err;
+    render();
+  }
+}
+
+function renderComplete(t) {
+  const c = state.complete;
+  const minutes = [...new Set([5, 10, 15, 20, c.minutes])].sort((a, b) => a - b);
+
+  return `
+    <div class="sheet-backdrop" data-action="close-complete"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(t.weDidIt)}" dir="${t.rtl ? 'rtl' : 'ltr'}">
+      <div class="grab"></div>
+      ${c.done ? `
+        <div class="done-card">
+          <div class="check">${ICON.check}</div>
+          <h2>${esc(t.weDidIt)}</h2>
+          <p>${esc(t.noteSaved)}</p>
+        </div>
+      ` : `
+        <div class="eyebrow">${esc(t.activity)}</div>
+        <h2>${esc(t.weDidIt)}</h2>
+
+        <div>
+          <span class="field-label">${esc(t.whoJoined)}</span>
+          <div class="chip-row">
+            ${['parent', 'parent_child', 'whole_family', 'other_adult'].map((code) => `
+              <button class="chip ${c.participants === code ? 'selected' : ''}" data-action="set-participants" data-value="${code}">
+                ${esc(t.joined[code])}
+              </button>`).join('')}
+          </div>
+        </div>
+
+        <div>
+          <span class="field-label">${esc(t.howLong)}</span>
+          <div class="chip-row">
+            ${minutes.map((m) => `
+              <button class="chip ${c.minutes === m ? 'selected' : ''}" data-action="set-minutes" data-value="${m}">
+                ${m} ${esc(t.minutes)}
+              </button>`).join('')}
+          </div>
+        </div>
+
+        ${errorNotice(c.error)}
+
+        <button class="btn btn-primary btn-block" data-action="confirm-complete" ${c.busy ? 'disabled' : ''}>
+          ${c.busy ? '<span class="spinner"></span>' : esc(t.confirm)}
+        </button>
+        <button class="btn btn-ghost btn-block" data-action="close-complete" ${c.busy ? 'disabled' : ''}>${esc(t.cancel)}</button>
+      `}
+    </div>`;
+}
+
 /* ------------------------------------------------------------------ *
  * Advocate inbox
  * ------------------------------------------------------------------ */
@@ -865,6 +1022,7 @@ async function loadFamilyDetail(id) {
   render();
   try {
     state.familyDetail = await api(`/api/families/${encodeURIComponent(id)}`);
+    state.familyDetailJson = JSON.stringify(state.familyDetail);
   } catch (err) {
     state.familyError = err;
   }
@@ -1017,7 +1175,44 @@ document.addEventListener('click', async (event) => {
   }
 
   if (action === 'complete') {
-    toast('Being connected in the next build');
+    openComplete();
+    return;
+  }
+
+  if (action === 'set-participants') {
+    state.complete.participants = el.dataset.value;
+    render();
+    return;
+  }
+
+  if (action === 'set-minutes') {
+    state.complete.minutes = Number(el.dataset.value);
+    render();
+    return;
+  }
+
+  if (action === 'confirm-complete') {
+    await confirmComplete();
+    return;
+  }
+
+  if (action === 'close-complete') {
+    if (!state.complete.busy) closeComplete();
+    return;
+  }
+
+  if (action === 'retry-note') {
+    const eventId = el.dataset.event;
+    if (!eventId || state.retryingNote) return;
+    state.retryingNote = eventId;
+    render();
+    try {
+      await api(`/api/documentation/${encodeURIComponent(eventId)}/retry`, { method: 'POST' });
+    } catch {
+      /* the refreshed file shows the real state either way */
+    }
+    state.retryingNote = null;
+    await loadFamilyDetail(state.familyDetail?.family.id);
     return;
   }
 });
@@ -1185,6 +1380,23 @@ async function boot() {
   if (state.screen === 'advocate') loadAdvocate();
   else if (state.screen === 'parent') loadParentFeed();
 }
+
+// While a note is being written, refresh the family file until it lands.
+setInterval(async () => {
+  if (state.screen !== 'family' || !state.familyDetail || document.hidden || state.retryingNote) return;
+  if (!state.familyDetail.notes.some((n) => n.status === 'pending')) return;
+  try {
+    const detail = await api(`/api/families/${encodeURIComponent(state.familyDetail.family.id)}`);
+    const json = JSON.stringify(detail);
+    if (json !== state.familyDetailJson) {
+      state.familyDetail = detail;
+      state.familyDetailJson = json;
+      render();
+    }
+  } catch {
+    /* keep the current file on screen */
+  }
+}, 5000);
 
 // Keep the advocate's reply list fresh while the screen is visible.
 setInterval(() => {

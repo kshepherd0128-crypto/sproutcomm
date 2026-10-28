@@ -138,6 +138,7 @@ node tools/verify-security.mjs  # family isolation across sessions
 node tools/verify-contract.mjs  # outgoing API shapes and locked prompts
 node tools/verify-stage2.mjs    # live translation, or stub-mode honesty
 node tools/verify-stage3.mjs    # voice note -> ASR -> English -> advocate inbox
+node tools/verify-stage4.mjs    # completion -> Wonder note, via UI and SQLite
 ```
 
 Screenshots land in `artifacts/` (not committed). `verify-stage2.mjs` switches
@@ -151,3 +152,6 @@ live acceptance run once `META_API_KEY` is present.
   parent view in the home language. Verified live with the server key.
 - Stage 3: parent voice notes, ffmpeg normalization, live transcription,
   English translation, and the advocate inbox with playback.
+- Stage 4: parent confirmation, completion event, Wonder documentation note,
+  idempotent by device id, with an honest pending/failed state and retry if
+  Wonder cannot write the note.

@@ -23,15 +23,17 @@ import {
 import { publicLanguages } from './languages.js';
 import { seedIfEmpty } from './seed.js';
 import {
+  completeEngagement,
   createEngagement,
   getFamily,
   getFamilyByToken,
   getFamilyDetail,
   getFeed,
   listActivities,
-  listFamilies
+  listFamilies,
+  retryNote
 } from './store.js';
-import { ensureFamilyTokens } from './db.js';
+import { ensureDocumentationColumns, ensureFamilyTokens } from './db.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 
@@ -233,6 +235,23 @@ route('GET', '/api/inbox', async (req) => {
   return { notes: listInbox(20) };
 });
 
+route('POST', '/api/parent/complete', async (req) => {
+  const session = requireSession(req, 'parent');
+  const body = await readJson(req, 16 * 1024);
+  return completeEngagement({
+    familyId: session.familyId,
+    messageId: body.message_id,
+    participants: body.participants,
+    activityMinutes: body.activity_minutes,
+    clientId: body.client_id
+  });
+});
+
+route('POST', '/api/documentation/:eventId/retry', async (req, params) => {
+  requireSession(req, 'advocate');
+  return retryNote(params.eventId);
+});
+
 route('GET', '/api/parent/feed', async (req) => {
   const session = requireSession(req, 'parent');
   const feed = getFeed(session.familyId);
@@ -340,6 +359,7 @@ function lanAddress() {
   return 'localhost';
 }
 
+ensureDocumentationColumns();
 ensureFamilyTokens();
 seedIfEmpty();
 ensureFamilyTokens();

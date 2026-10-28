@@ -113,6 +113,8 @@ db.exec(`
     body       TEXT NOT NULL,
     model      TEXT NOT NULL,
     source     TEXT NOT NULL,             -- live | seed
+    status     TEXT NOT NULL DEFAULT 'ready',  -- pending | ready | failed
+    error      TEXT,
     created_at TEXT NOT NULL
   );
 `);
@@ -155,6 +157,16 @@ export function ensureFamilyTokens() {
   const update = db.prepare('UPDATE families SET access_token = ? WHERE id = ?');
   for (const row of missing) update.run(randomBytes(16).toString('base64url'), row.id);
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_families_token ON families (access_token)');
+}
+
+export function ensureDocumentationColumns() {
+  const columns = db.prepare('PRAGMA table_info(documentation_notes)').all();
+  if (!columns.some((c) => c.name === 'status')) {
+    db.exec("ALTER TABLE documentation_notes ADD COLUMN status TEXT NOT NULL DEFAULT 'ready'");
+  }
+  if (!columns.some((c) => c.name === 'error')) {
+    db.exec('ALTER TABLE documentation_notes ADD COLUMN error TEXT');
+  }
 }
 
 export function isSeeded() {
