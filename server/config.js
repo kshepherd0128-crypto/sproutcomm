@@ -6,6 +6,7 @@
 // sent to the browser, and never logged.
 
 import fs from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -36,9 +37,18 @@ loadSecretFile(SECRET_FILE);
 
 export const config = {
   port: Number(process.env.PORT || 8787),
+  // Mobile browsers only expose the microphone in a secure context. Set
+  // HTTPS=1 to serve the same app over TLS with a generated self-signed cert
+  // so a phone on the local network can record voice notes.
+  https: process.env.HTTPS === '1',
+  httpsPort: Number(process.env.HTTPS_PORT || 8443),
+  certDir: new URL('../data/certs/', import.meta.url).pathname,
   host: process.env.HOST || '0.0.0.0',
   dbPath: process.env.SPROUT_DB || new URL('../data/sproutcomm.db', import.meta.url).pathname,
   audioDir: new URL('../data/audio/', import.meta.url).pathname,
+  // Signs short-lived audio URLs so <audio> can play a note without an
+  // Authorization header. Rotates on restart, which is fine for this slice.
+  audioSecret: process.env.AUDIO_URL_SECRET || randomBytes(24).toString('hex'),
   meta: {
     baseUrl: process.env.META_BASE_URL || 'https://api.meta.ai',
     apiKey: process.env.META_API_KEY || '',

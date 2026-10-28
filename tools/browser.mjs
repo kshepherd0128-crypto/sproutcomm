@@ -9,7 +9,7 @@ const CHROME = process.env.CHROME_BIN || '/usr/bin/chromium';
 const PORT = Number(process.env.CDP_PORT || 9333);
 
 export class Browser {
-  static async launch({ userDataDir = '/tmp/opencode/chromium-sprout' } = {}) {
+  static async launch({ userDataDir = '/tmp/opencode/chromium-sprout', extraArgs = [] } = {}) {
     fs.rmSync(userDataDir, { recursive: true, force: true });
     fs.mkdirSync(userDataDir, { recursive: true });
 
@@ -25,6 +25,7 @@ export class Browser {
         '--hide-scrollbars',
         '--force-device-scale-factor=2',
         '--lang=en-US',
+        ...extraArgs,
         'about:blank'
       ],
       { stdio: ['ignore', 'ignore', 'pipe'] }
@@ -103,6 +104,10 @@ export class Browser {
     });
     await page.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
     return page;
+  }
+
+  async grantPermissions(origin, permissions = ['audioCapture']) {
+    await this.send('Browser.grantPermissions', { origin, permissions });
   }
 
   async close() {
@@ -219,6 +224,17 @@ export class Page {
     })()`);
     if (!ok) throw new Error(`No form for selector: ${selector}`);
     await sleep(400);
+  }
+
+  async setFile(selector, filePath) {
+    const doc = await this.send('DOM.getDocument', { depth: -1 });
+    const { nodeId } = await this.send('DOM.querySelector', {
+      nodeId: doc.root.nodeId,
+      selector
+    });
+    if (!nodeId) throw new Error(`No file input for selector: ${selector}`);
+    await this.send('DOM.setFileInputFiles', { files: [filePath], nodeId });
+    await sleep(300);
   }
 
   async screenshot(file) {

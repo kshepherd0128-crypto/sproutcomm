@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { all, one, run, transaction } from './db.js';
 import { language } from './languages.js';
 import { translateText } from './meta.js';
+import { noteAudioUrl, shapeNote } from './notes.js';
 import { httpError } from './http.js';
 
 const nowIso = () => new Date().toISOString();
@@ -291,6 +292,16 @@ export function getFeed(familyId) {
         "SELECT COUNT(*) AS n FROM voice_notes WHERE message_id = ? AND status = 'ready'",
         message.id
       ).n,
+      replies: all(
+        `SELECT * FROM voice_notes WHERE message_id = ? ORDER BY created_at DESC LIMIT 3`,
+        message.id
+      ).map((v) => ({
+        id: v.id,
+        created_at: v.created_at,
+        status: v.status,
+        duration_ms: v.duration_ms,
+        audio_url: v.audio_path ? noteAudioUrl(v.id) : null
+      })),
       has_note: Boolean(
         one('SELECT 1 AS x FROM documentation_notes WHERE message_id = ?', message.id)
       )
@@ -311,19 +322,11 @@ export function getFamilyDetail(familyId) {
     const activity = getActivity(m.activity_id);
     const t = translationFor(m.id, family.home_language);
     const replies = all(
-      'SELECT * FROM voice_notes WHERE message_id = ? ORDER BY created_at DESC',
+      `SELECT v.*, f.family_name, f.child_name, f.home_language
+         FROM voice_notes v JOIN families f ON f.id = v.family_id
+        WHERE v.message_id = ? ORDER BY v.created_at DESC`,
       m.id
-    ).map((v) => ({
-      id: v.id,
-      created_at: v.created_at,
-      status: v.status,
-      lang: v.lang,
-      duration_ms: v.duration_ms,
-      transcript: v.transcript,
-      transcript_en: v.transcript_en,
-      audio_url: v.audio_path ? `/api/voice-notes/${v.id}/audio` : null,
-      error: v.error
-    }));
+    ).map(shapeNote);
     const notes = all(
       'SELECT * FROM documentation_notes WHERE message_id = ? ORDER BY created_at DESC',
       m.id

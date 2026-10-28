@@ -3,6 +3,8 @@
 // text, and the Meta key never leaves this process.
 
 import http from 'node:http';
+import https from 'node:https';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -11,6 +13,13 @@ import { fileURLToPath } from 'node:url';
 
 import { config, hasMetaKey } from './config.js';
 import { readJson, sendJson, sendError, logRequest, httpError } from './http.js';
+import { readMultipart } from './multipart.js';
+import {
+  audioSignatureValid,
+  createVoiceNote,
+  getVoiceNote,
+  listInbox
+} from './notes.js';
 import { publicLanguages } from './languages.js';
 import { seedIfEmpty } from './seed.js';
 import {
@@ -54,6 +63,40 @@ function requireSession(req, role) {
   if (!session) throw httpError(401, 'Please sign in again');
   if (role && session.role !== role) throw httpError(403, 'This section is not available for your role');
   return session;
+}
+
+function sendAudioFile(req, res, filePath) {
+  const stat = fs.statSync(filePath);
+  const total = stat.size;
+  const range = req.headers.range;
+
+  if (range) {
+    const match = /bytes=(\d*)-(\d*)/.exec(range);
+    const start = match?.[1] ? Number(match[1]) : 0;
+    const end = match?.[2] ? Number(match[2]) : total - 1;
+    if (start >= total || end >= total) {
+      res.writeHead(416, { 'content-range': `bytes */${total}` });
+      res.end();
+      return;
+    }
+    res.writeHead(206, {
+      'content-type': 'audio/wav',
+      'accept-ranges': 'bytes',
+      'content-range': `bytes ${start}-${end}/${total}`,
+      'content-length': end - start + 1,
+      'cache-control': 'private, max-age=300'
+    });
+    fs.createReadStream(filePath, { start, end }).pipe(res);
+    return;
+  }
+
+  res.writeHead(200, {
+    'content-type': 'audio/wav',
+    'accept-ranges': 'bytes',
+    'content-length': total,
+    'cache-control': 'private, max-age=300'
+  });
+  fs.createReadStream(filePath).pipe(res);
 }
 
 function serveStatic(req, res, pathname) {
@@ -145,6 +188,51 @@ route('GET', '/api/families/:id', async (req, params) => {
   return detail;
 });
 
+route('POST', '/api/parent/voice-notes', async (req) => {
+  const session = requireSession(req, 'parent');
+  const family = getFamily(session.familyId);
+  if (!family) throw httpError(404, 'Family not found');
+
+  const { fields, files } = await readMultipart(req);
+  const audio = files.find((f) => f.name === 'audio');
+  if (!audio || audio.data.length === 0) throw httpError(400, 'No recording was received');
+
+  const { note, duplicate } = await createVoiceNote({
+    familyId: family.id,
+    messageId: fields.message_id || null,
+    clientId: fields.client_id || null,
+    lang: family.home_language,
+    buffer: audio.data,
+    filename: audio.filename
+  });
+
+  return {
+    id: note.id,
+    status: note.status,
+    duplicate,
+    duration_ms: note.duration_ms,
+    created_at: note.created_at
+  };
+});
+
+// Audio playback uses a signed URL so an <audio> element does not need a
+// bearer header. The signature is scoped to one note.
+route('GET', '/api/voice-notes/:id/audio', async (req, params, url) => {
+  const note = getVoiceNote(params.id);
+  if (!note || !note.audio_path) throw httpError(404, 'Recording not found');
+  if (!audioSignatureValid(note.id, url.searchParams.get('sig'))) {
+    throw httpError(403, 'That audio link has expired');
+  }
+  const filePath = path.join(config.audioDir, note.audio_path);
+  if (!fs.existsSync(filePath)) throw httpError(404, 'Recording not found');
+  return { __file: filePath };
+});
+
+route('GET', '/api/inbox', async (req) => {
+  requireSession(req, 'advocate');
+  return { notes: listInbox(20) };
+});
+
 route('GET', '/api/parent/feed', async (req) => {
   const session = requireSession(req, 'parent');
   const feed = getFeed(session.familyId);
@@ -167,7 +255,7 @@ route('POST', '/api/messages', async (req) => {
   };
 });
 
-const server = http.createServer(async (req, res) => {
+async function handleRequest(req, res) {
   const started = Date.now();
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
@@ -223,7 +311,11 @@ const server = http.createServer(async (req, res) => {
   }
 
   try {
-    const payload = await matched.r.handler(req, matched.params);
+    const payload = await matched.r.handler(req, matched.params, url);
+    if (payload && payload.__file) {
+      sendAudioFile(req, res, payload.__file);
+      return;
+    }
     sendJson(res, 200, payload);
   } catch (err) {
     const status = err.status || 500;
@@ -237,7 +329,7 @@ const server = http.createServer(async (req, res) => {
       upstream_detail: err.upstreamDetail || undefined
     });
   }
-});
+}
 
 function lanAddress() {
   for (const iface of Object.values(os.networkInterfaces())) {
@@ -252,8 +344,44 @@ ensureFamilyTokens();
 seedIfEmpty();
 ensureFamilyTokens();
 
-server.listen(config.port, config.host, () => {
-  console.log(`SproutComm server on http://localhost:${config.port}`);
-  console.log(`Phone on the same Wi-Fi: http://${lanAddress()}:${config.port}`);
+function ensureCertificate(address) {
+  const dir = config.certDir;
+  fs.mkdirSync(dir, { recursive: true });
+  const keyPath = path.join(dir, 'key.pem');
+  const certPath = path.join(dir, 'cert.pem');
+  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) return { key: keyPath, cert: certPath };
+
+  execFileSync('openssl', [
+    'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+    '-keyout', keyPath, '-out', certPath, '-days', '30',
+    '-subj', '/CN=SproutComm',
+    '-addext', `subjectAltName=IP:${address},IP:127.0.0.1,DNS:localhost`
+  ], { stdio: 'ignore' });
+
+  return { key: keyPath, cert: certPath };
+}
+
+const address = lanAddress();
+const server = config.https
+  ? (() => {
+      const { key, cert } = ensureCertificate(address);
+      return https.createServer(
+        { key: fs.readFileSync(key), cert: fs.readFileSync(cert) },
+        handleRequest
+      );
+    })()
+  : http.createServer(handleRequest);
+
+const port = config.https ? config.httpsPort : config.port;
+const scheme = config.https ? 'https' : 'http';
+
+server.listen(port, config.host, () => {
+  console.log(`SproutComm server on ${scheme}://localhost:${port}`);
+  console.log(`Phone on the same Wi-Fi: ${scheme}://${address}:${port}`);
+  if (config.https) {
+    console.log('Self-signed certificate: accept the browser warning once, then the microphone works.');
+  } else {
+    console.log('Microphone recording needs HTTPS on a phone. Restart with HTTPS=1 for a phone demo.');
+  }
   console.log(`AI proxy: ${hasMetaKey() ? 'META_API_KEY loaded' : 'NO KEY — translation/documentation calls will fail'}`);
 });

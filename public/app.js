@@ -9,10 +9,10 @@ const root = document.getElementById('app');
  * ------------------------------------------------------------------ */
 
 const UI_TEXT = {
-  ar: { listen: 'استمع', weDidIt: 'أنجزنا النشاط', voiceNote: 'ملاحظة صوتية', activity: 'نشاط الليلة', prompt: 'اسألوا طفلكم', minutes: 'دقائق', sent: 'تم الإرسال', done: 'وصلت ملاحظتكم', rtl: true },
-  bn: { listen: 'শুনুন', weDidIt: 'আমরা করেছি', voiceNote: 'কণ্ঠ বার্তা', activity: 'আজ রাতের কাজ', prompt: 'সন্তানকে জিজ্ঞাসা করুন', minutes: 'মিনিট', sent: 'পাঠানো হয়েছে', done: 'আপনার বার্তা পৌঁছেছে', rtl: false },
-  en: { listen: 'Listen', weDidIt: 'We did it', voiceNote: 'Voice note', activity: "Tonight's activity", prompt: 'Ask your child', minutes: 'min', sent: 'Sent', done: 'Your note was delivered', rtl: false },
-  syl: { listen: 'শুনুন', weDidIt: 'আমরা করেছি', voiceNote: 'কণ্ঠ বার্তা', activity: 'আজ রাতের কাজ', prompt: 'সন্তানকে জিজ্ঞাসা করুন', minutes: 'মিনিট', sent: 'পাঠানো হয়েছে', done: 'আপনার বার্তা পৌঁছেছে', rtl: false }
+  ar: { listen: 'استمع', weDidIt: 'أنجزنا النشاط', voiceNote: 'ملاحظة صوتية', activity: 'نشاط الليلة', prompt: 'اسألوا طفلكم', minutes: 'دقائق', sent: 'تم الإرسال', done: 'وصلت ملاحظتكم', record: 'اضغط للتسجيل', stop: 'إيقاف', send: 'إرسال', cancel: 'إلغاء', chooseFile: 'اختيار تسجيل من الهاتف', sentNote: 'وصلت ملاحظتكم الصوتية', micOff: 'الميكروفون غير متاح. اختاروا تسجيلاً من هاتفكم.', rtl: true },
+  bn: { listen: 'শুনুন', weDidIt: 'আমরা করেছি', voiceNote: 'কণ্ঠ বার্তা', activity: 'আজ রাতের কাজ', prompt: 'সন্তানকে জিজ্ঞাসা করুন', minutes: 'মিনিট', sent: 'পাঠানো হয়েছে', done: 'আপনার বার্তা পৌঁছেছে', record: 'রেকর্ড করতে চাপুন', stop: 'থামুন', send: 'পাঠান', cancel: 'বাতিল', chooseFile: 'ফোন থেকে রেকর্ডিং বাছুন', sentNote: 'আপনার কণ্ঠ বার্তা পৌঁছেছে', micOff: 'মাইক ব্যবহার করা যাচ্ছে না। ফোন থেকে রেকর্ডিং বেছে নিন।', rtl: false },
+  en: { listen: 'Listen', weDidIt: 'We did it', voiceNote: 'Voice note', activity: "Tonight's activity", prompt: 'Ask your child', minutes: 'min', sent: 'Sent', done: 'Your note was delivered', record: 'Tap to record', stop: 'Stop', send: 'Send', cancel: 'Cancel', chooseFile: 'Choose a recording', sentNote: 'Your voice note was delivered', micOff: 'The microphone is not available. Choose a recording from your phone.', rtl: false },
+  syl: { listen: 'শুনুন', weDidIt: 'আমরা করেছি', voiceNote: 'কণ্ঠ বার্তা', activity: 'আজ রাতের কাজ', prompt: 'সন্তানকে জিজ্ঞাসা করুন', minutes: 'মিনিট', sent: 'পাঠানো হয়েছে', done: 'আপনার বার্তা পৌঁছেছে', record: 'রেকর্ড করতে চাপুন', stop: 'থামুন', send: 'পাঠান', cancel: 'বাতিল', chooseFile: 'ফোন থেকে রেকর্ডিং বাছুন', sentNote: 'আপনার কণ্ঠ বার্তা পৌঁছেছে', micOff: 'মাইক ব্যবহার করা যাচ্ছে না। ফোন থেকে রেকর্ডিং বেছে নিন।', rtl: false }
 };
 
 const ui = (code) => UI_TEXT[code] ?? UI_TEXT.en;
@@ -57,7 +57,10 @@ const state = {
   speaking: false,
   aiConfigured: null,
   linkError: null,
-  booting: false
+  booting: false,
+  inbox: null,
+  inboxKey: '',
+  record: { open: false, phase: 'idle', seconds: 0, error: null, blob: null, previewUrl: null }
 };
 
 const SESSION_KEY = 'sproutcomm.session';
@@ -247,6 +250,8 @@ function renderAdvocate() {
           <strong>Translation is offline on this server.</strong>
           META_API_KEY is not set, so no message can be translated. English families still work; Arabic and Bangla sends stop before delivery rather than going out untranslated.
         </div>` : ''}
+
+      ${renderInbox()}
 
       ${state.sendResult ? renderSendResult(state.sendResult) : ''}
 
@@ -518,6 +523,18 @@ function renderParent() {
           </div>` : ''}
       </section>
 
+      ${m.replies?.length ? `
+        <div class="card reply-card" style="padding:14px">
+          <div class="row" style="justify-content:space-between;margin-bottom:8px">
+            <span class="eyebrow">${esc(t.voiceNote)}</span>
+            <span class="small muted">${esc(fmtDate(m.replies[0].created_at))}</span>
+          </div>
+          ${m.replies[0].audio_url
+            ? `<audio controls preload="metadata" src="${esc(m.replies[0].audio_url)}" style="width:100%"></audio>`
+            : '<p class="small muted">Still uploading…</p>'}
+          <p class="small muted" style="margin-top:8px">${m.replies[0].status === 'ready' ? 'Your advocate has your voice note.' : m.replies[0].status === 'transcribing' ? 'Sending to your advocate…' : (m.replies[0].status === 'failed' || m.replies[0].status === 'no_speech') ? 'We could not hear that recording. Try again.' : 'Sending to your advocate…'}</p>
+        </div>` : ''}
+
       ${!textMode ? `<div class="notice warn">This family's home language is delivered by voice only. Text cards are not shown.</div>` : ''}
     </div>
 
@@ -529,6 +546,7 @@ function renderParent() {
         ${ICON.mic} ${esc(t.voiceNote)}
       </button>
     </div>
+    ${state.record.open ? renderRecorder(t) : ''}
   </div>`;
 }
 
@@ -584,6 +602,230 @@ function speak() {
   render();
 }
 
+
+/* ------------------------------------------------------------------ *
+ * Voice notes
+ * ------------------------------------------------------------------ */
+
+let recorder = null;
+let recChunks = [];
+let recTimer = null;
+let recStream = null;
+let closeTimer = null;
+
+const formatSecs = (n) => `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+
+function releaseRecorder() {
+  clearInterval(recTimer);
+  recTimer = null;
+  if (recStream) recStream.getTracks().forEach((t) => t.stop());
+  recStream = null;
+  recorder = null;
+  recChunks = [];
+}
+
+function openRecorder() {
+  if (!state.parentFeed?.message) return;
+  clearTimeout(closeTimer);
+  state.record = { open: true, phase: 'idle', seconds: 0, error: null, blob: null, previewUrl: null };
+  render();
+}
+
+function closeRecorder({ refresh = false } = {}) {
+  releaseRecorder();
+  clearTimeout(closeTimer);
+  if (state.record.previewUrl) URL.revokeObjectURL(state.record.previewUrl);
+  state.record = { open: false, phase: 'idle', seconds: 0, error: null, blob: null, previewUrl: null };
+  render();
+  if (refresh) loadParentFeed();
+}
+
+async function startRecording() {
+  const t = ui(state.parentFeed?.family.home_language);
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+    state.record.error = t.micOff;
+    render();
+    return;
+  }
+
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(
+      (type) => window.MediaRecorder.isTypeSupported?.(type)
+    );
+    recorder = new MediaRecorder(recStream, mime ? { mimeType: mime } : undefined);
+    recChunks = [];
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) recChunks.push(event.data);
+    };
+
+    recorder.onstop = () => {
+      const blob = new Blob(recChunks, { type: recorder?.mimeType || 'audio/webm' });
+      releaseRecorder();
+      state.record.blob = blob;
+      state.record.previewUrl = URL.createObjectURL(blob);
+      state.record.phase = 'review';
+      render();
+    };
+
+    recorder.start();
+    state.record.phase = 'recording';
+    state.record.seconds = 0;
+    state.record.error = null;
+    render();
+
+    recTimer = setInterval(() => {
+      state.record.seconds += 1;
+      const el = document.querySelector('.rec-timer');
+      if (el) el.textContent = formatSecs(state.record.seconds);
+      if (state.record.seconds >= 120) stopRecording();
+    }, 1000);
+  } catch {
+    releaseRecorder();
+    state.record.error = t.micOff;
+    state.record.phase = 'idle';
+    render();
+  }
+}
+
+function stopRecording() {
+  clearInterval(recTimer);
+  recTimer = null;
+  if (recorder && recorder.state !== 'inactive') recorder.stop();
+}
+
+async function sendRecording() {
+  const blob = state.record.blob;
+  if (!blob) return;
+  const t = ui(state.parentFeed?.family.home_language);
+  state.record.phase = 'sending';
+  state.record.error = null;
+  render();
+
+  try {
+    const form = new FormData();
+    form.append('audio', blob, 'note.webm');
+    form.append('message_id', state.parentFeed.message.id);
+    form.append('client_id', crypto.randomUUID());
+
+    const res = await fetch('/api/parent/voice-notes', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${state.session.token}` },
+      body: form
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not send that recording');
+
+    state.record.phase = 'sent';
+    render();
+    closeTimer = setTimeout(() => closeRecorder({ refresh: true }), 2200);
+  } catch (err) {
+    state.record.phase = 'review';
+    state.record.error = err;
+    render();
+  }
+}
+
+function renderRecorder(t) {
+  const r = state.record;
+  return `
+    <div class="sheet-backdrop" data-action="close-record"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(t.voiceNote)}" dir="${t.rtl ? 'rtl' : 'ltr'}">
+      <div class="grab"></div>
+      <div class="eyebrow">${esc(t.voiceNote)}</div>
+
+      ${r.phase === 'idle' ? `
+        <p class="rec-status">${esc(t.record)}</p>
+        <button class="mic-btn" data-action="start-record" aria-label="${esc(t.record)}">${ICON.mic}</button>
+        <label class="btn btn-ghost btn-block" style="cursor:pointer;position:relative">
+          ${esc(t.chooseFile)}
+          <input type="file" accept="audio/*" data-role="audio-file" style="position:absolute;inset:0;opacity:0;width:100%;height:100%" />
+        </label>
+        ${r.error ? `<div class="notice error">${esc(r.error.message || r.error)}</div>` : ''}
+        <button class="btn btn-ghost btn-block" data-action="close-record">${esc(t.cancel)}</button>
+      ` : ''}
+
+      ${r.phase === 'recording' ? `
+        <div class="rec-timer">${formatSecs(r.seconds)}</div>
+        <button class="mic-btn recording" data-action="stop-record" aria-label="${esc(t.stop)}">${ICON.stop}</button>
+        <p class="rec-status">${esc(t.stop)}</p>
+      ` : ''}
+
+      ${r.phase === 'review' || r.phase === 'sending' ? `
+        <audio controls src="${esc(r.previewUrl || '')}"></audio>
+        ${r.error ? `<div class="notice error">${esc(r.error.message || r.error)}</div>` : ''}
+        <div class="row-btns">
+          <button class="btn btn-ghost" data-action="close-record" ${r.phase === 'sending' ? 'disabled' : ''}>${esc(t.cancel)}</button>
+          <button class="btn btn-primary" data-action="send-record" ${r.phase === 'sending' ? 'disabled' : ''}>
+            ${r.phase === 'sending' ? '<span class="spinner"></span>' : esc(t.send)}
+          </button>
+        </div>
+      ` : ''}
+
+      ${r.phase === 'sent' ? `
+        <div class="done-card">
+          <div class="check">${ICON.check}</div>
+          <p>${esc(t.sentNote)}</p>
+        </div>
+      ` : ''}
+    </div>`;
+}
+
+/* ------------------------------------------------------------------ *
+ * Advocate inbox
+ * ------------------------------------------------------------------ */
+
+async function loadInbox() {
+  try {
+    const data = await api('/api/inbox');
+    const key = JSON.stringify(data.notes);
+    if (key !== state.inboxKey) {
+      state.inbox = data.notes;
+      state.inboxKey = key;
+      if (state.screen === 'advocate') render();
+    }
+  } catch {
+    /* the inbox is not critical to the compose flow */
+  }
+}
+
+function renderInbox() {
+  const notes = state.inbox ?? [];
+  if (!notes.length) return '';
+
+  return `
+    <div class="section-title">Family replies</div>
+    <div class="stack">
+      ${notes.slice(0, 2).map((n) => {
+        const wait = n.status === 'transcribing';
+        return `
+        <div class="card note-card" style="padding:15px">
+          <div class="row" style="justify-content:space-between">
+            <span class="tag">${ICON.mic} ${esc(n.family_name)}</span>
+            <span class="small muted">${esc(fmtDate(n.created_at))}</span>
+          </div>
+          ${wait ? `
+            <p class="muted small" style="margin-top:8px"><span class="status-dot wait"></span>Transcribing the family's reply…</p>
+          ` : n.status === 'ready' ? `
+            <p class="translated">${esc(n.transcript_en || '')}</p>
+            <details>
+              <summary>Original (${esc(n.lang.toUpperCase())})</summary>
+              <div class="small" dir="${n.lang === 'ar' ? 'rtl' : 'ltr'}" style="margin-top:6px">${esc(n.transcript || '')}</div>
+            </details>
+            ${n.audio_url ? `<audio controls preload="metadata" src="${esc(n.audio_url)}"></audio>` : ''}
+          ` : `
+            <p class="muted small" style="margin-top:8px">${esc(n.error || 'This reply could not be processed.')}</p>
+          `}
+          <div class="row" style="justify-content:space-between;margin-top:10px;gap:8px">
+            <span class="small muted" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n.child_name)} · ${esc(n.activity_title || 'Engagement')}</span>
+            <button class="btn btn-ghost" style="min-height:38px;padding:0 12px;font-size:14px;white-space:nowrap;flex:none" data-action="open-family" data-family="${esc(n.family_id)}">Open file</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
 /* ------------------------------------------------------------------ *
  * Data loading
  * ------------------------------------------------------------------ */
@@ -609,6 +851,7 @@ async function loadAdvocate() {
       );
     }
     state.advocateError = null;
+    loadInbox();
   } catch (err) {
     state.advocateError = err;
     if (err.status === 401 || err.status === 403) signOut();
@@ -665,7 +908,23 @@ function signOut() {
  * Render + events
  * ------------------------------------------------------------------ */
 
+function captureFormState() {
+  const form = document.querySelector('form[data-form="compose"]');
+  if (!form) return;
+  const family = form.querySelector('[name=family_id]')?.value;
+  const activity = form.querySelector('[name=activity_id]')?.value;
+  const body = form.querySelector('[name=body_en]')?.value;
+  if (family) state.compose.familyId = family;
+  if (activity) state.compose.activityId = activity;
+  if (body !== undefined) state.compose.body = body;
+}
+
 function render() {
+  const active = document.activeElement;
+  const hadBodyFocus = active?.id === 'c-body';
+  const caret = hadBodyFocus ? active.selectionStart : null;
+  captureFormState();
+
   let html = '';
   if (state.screen === 'entry') html = renderEntry();
   else if (state.screen === 'advocate') html = renderAdvocate();
@@ -673,6 +932,14 @@ function render() {
   else html = renderParent();
 
   root.innerHTML = html;
+
+  if (hadBodyFocus) {
+    const body = document.getElementById('c-body');
+    if (body) {
+      body.focus();
+      if (caret !== null) body.setSelectionRange(caret, caret);
+    }
+  }
 }
 
 document.addEventListener('click', async (event) => {
@@ -736,7 +1003,32 @@ document.addEventListener('click', async (event) => {
     return;
   }
 
-  if (action === 'complete' || action === 'record') {
+  if (action === 'record') {
+    openRecorder();
+    return;
+  }
+
+  if (action === 'start-record') {
+    await startRecording();
+    return;
+  }
+
+  if (action === 'stop-record') {
+    stopRecording();
+    return;
+  }
+
+  if (action === 'send-record') {
+    await sendRecording();
+    return;
+  }
+
+  if (action === 'close-record') {
+    closeRecorder();
+    return;
+  }
+
+  if (action === 'complete') {
     toast('Being connected in the next build');
     return;
   }
@@ -807,6 +1099,17 @@ document.addEventListener('submit', async (event) => {
 });
 
 document.addEventListener('change', (event) => {
+  if (event.target.matches('[data-role="audio-file"]')) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    state.record.blob = file;
+    state.record.previewUrl = URL.createObjectURL(file);
+    state.record.phase = 'review';
+    state.record.error = null;
+    render();
+    return;
+  }
+
   const form = event.target.closest('form[data-form="compose"]');
   if (!form) return;
   const familyId = form.querySelector('[name=family_id]').value;
@@ -890,5 +1193,12 @@ async function boot() {
   if (state.screen === 'advocate') loadAdvocate();
   else if (state.screen === 'parent') loadParentFeed();
 }
+
+// Keep the advocate's reply list fresh while the screen is visible.
+setInterval(() => {
+  if (state.screen === 'advocate' && state.session?.role === 'advocate' && !document.hidden) {
+    loadInbox();
+  }
+}, 6000);
 
 boot();

@@ -70,6 +70,47 @@ the session exists. Tokens are redacted from server logs.
 
 This is demo-grade access, not production authentication.
 
+## Voice replies
+
+A parent taps the voice note button and records in their own language. The
+server runs every upload through ffmpeg before it touches the transcription
+API:
+
+```
+ffmpeg -i upload -vn -ac 1 -ar 16000 -sample_fmt s16 note.wav
+```
+
+Then:
+
+1. `muse-voice-transcribe-1.0` transcribes the WAV (`/v1/asr/transcribe`,
+   multipart with the `request` and `audio` parts).
+2. `muse-spark-1.3` translates the transcript to English for the advocate.
+3. The advocate inbox shows the English translation, the original transcript,
+   and a play button. The family file keeps the same reply under its
+   engagement.
+
+Notes are capped at two minutes, deduplicated by a device-generated id, and
+served through signed URLs so `<audio>` works without a bearer header. If ASR
+finds no speech, the reply is marked `no_speech` and the parent is asked to try
+again; nothing is invented.
+
+### Recording on a phone
+
+Browsers only expose the microphone in a secure context. Locally that means
+`http://localhost`; on a phone it means real HTTPS. Options for the demo:
+
+- **Laptop at `http://localhost:8787`** — microphone works as-is.
+- **Phone over LAN, with a trusted certificate** — run `npm run start:https`
+  (serves `https://<lan-ip>:8443` with a generated self-signed cert) and install
+  `data/certs/cert.pem` on the phone as a CA certificate. The certificate
+  includes the LAN IP in its SAN list, so once trusted it is a proper secure
+  context and recording works offline.
+- **Tunnel** — point any trusted HTTPS tunnel at port 8787 if internet is
+  available at demo time.
+- **Any setup** — the recorder sheet also offers "choose a recording", which
+  uploads a file without needing a secure context. That is the same
+  convert/transcribe/translate pipeline.
+
 ## Languages
 
 - v1: Arabic (RTL), Bangla, English. Locked Meta translation prompts.
@@ -96,6 +137,7 @@ node tools/verify-stage1.mjs    # real Chromium at 390x844, token entry, RTL
 node tools/verify-security.mjs  # family isolation across sessions
 node tools/verify-contract.mjs  # outgoing API shapes and locked prompts
 node tools/verify-stage2.mjs    # live translation, or stub-mode honesty
+node tools/verify-stage3.mjs    # voice note -> ASR -> English -> advocate inbox
 ```
 
 Screenshots land in `artifacts/` (not committed). `verify-stage2.mjs` switches
@@ -106,5 +148,6 @@ live acceptance run once `META_API_KEY` is present.
 
 - Stage 1: scaffold, both views, synthetic data, token links.
 - Stage 2: advocate send with live Spark translation into Arabic and Bangla,
-  parent view in the home language. Live call pending a server key; without
-  one the app refuses to send and says why.
+  parent view in the home language. Verified live with the server key.
+- Stage 3: parent voice notes, ffmpeg normalization, live transcription,
+  English translation, and the advocate inbox with playback.
