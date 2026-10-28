@@ -97,7 +97,8 @@ try {
   await page.goto(bnLink);
   await page.waitFor('document.querySelector(".parent-msg")');
   await page.screenshot(`${OUT}/06-parent-bangla.png`);
-  check('bangla feed renders', (await page.text()).includes('রান্নাঘরে'));
+  const bnText = await page.text();
+  check('bangla feed renders in Bangla script', /\p{Script=Bengali}/u.test(bnText) && bnText.includes('Rahman family'), bnText.slice(0, 40).replace(/\n/g, ' '));
 
   // ---- invalid token is rejected
   await page.goto(`${BASE}/f/this-is-not-a-real-family-token`);

@@ -259,10 +259,19 @@ const displayTime = (iso) =>
  * participants and minutes the parent supplied at confirmation. Nothing is
  * inferred, summarised, or added from outside the record.
  */
-function engagementEvent(event) {
+export function buildEngagementEvent(event) {
   const family = getFamily(event.family_id);
   const message = one('SELECT * FROM messages WHERE id = ?', event.message_id);
   const activity = message ? getActivity(message.activity_id) : null;
+  const reply = message
+    ? one(
+        `SELECT * FROM voice_notes
+          WHERE message_id = ? AND status = 'ready'
+            AND transcript_en IS NOT NULL AND trim(transcript_en) <> ''
+          ORDER BY created_at DESC LIMIT 1`,
+        message.id
+      )
+    : null;
 
   return {
     completed_at: displayTime(event.occurred_at),
@@ -282,6 +291,7 @@ function engagementEvent(event) {
     participants: event.participants,
     activity_minutes: event.activity_minutes,
     advocate_message_sent_at: message ? displayTime(message.created_at) : null,
+    family_voice_reply: reply ? reply.transcript_en : null,
     standard: 'HSPPS 1302.50'
   };
 }
@@ -299,13 +309,22 @@ export async function generateNote(eventId) {
   run("UPDATE documentation_notes SET status = 'pending', error = NULL WHERE id = ?", note.id);
 
   try {
-    const { text } = await documentEngagement(engagementEvent(event));
+    const { text } = await documentEngagement(buildEngagementEvent(event));
+
+    // A note without a body is not a note. Treat it exactly like a generation
+    // failure so the file shows an honest state instead of an empty document.
+    const body = String(text || '').trim();
+    if (body.length < 40) {
+      throw new Error('Documentation returned no usable text');
+    }
+
+    // Status and body land in the same UPDATE: a 'ready' row always has text.
     run(
       "UPDATE documentation_notes SET status = 'ready', body = ?, error = NULL WHERE id = ?",
-      text,
+      body,
       note.id
     );
-    return { ...note, status: 'ready', body: text, error: null };
+    return { ...note, status: 'ready', body, error: null };
   } catch (err) {
     const message = String(err.message || 'Documentation could not be generated').slice(0, 300);
     run(
@@ -355,7 +374,7 @@ function completionResult(event) {
       ? {
           id: note.id,
           status: note.status,
-          body: note.status === 'ready' ? note.body : null,
+          body: note.status === 'ready' && note.body?.trim() ? note.body : null,
           error: note.error ?? null,
           standard: note.standard
         }

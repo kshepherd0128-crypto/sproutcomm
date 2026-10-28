@@ -33,7 +33,7 @@ import {
   listFamilies,
   retryNote
 } from './store.js';
-import { ensureDocumentationColumns, ensureFamilyTokens } from './db.js';
+import { ensureDocumentationColumns, ensureFamilyTokens, failOrphanedNotes } from './db.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 
@@ -363,6 +363,8 @@ ensureDocumentationColumns();
 ensureFamilyTokens();
 seedIfEmpty();
 ensureFamilyTokens();
+const orphaned = failOrphanedNotes();
+if (orphaned > 0) console.log(`Marked ${orphaned} interrupted documentation note(s) as failed.`);
 
 function ensureCertificate(address) {
   const dir = config.certDir;

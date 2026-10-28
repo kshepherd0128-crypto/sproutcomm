@@ -237,6 +237,17 @@ export class Page {
     await sleep(300);
   }
 
+  async setOffline(offline) {
+    await this.send('Network.enable');
+    await this.send('Network.emulateNetworkConditions', {
+      offline,
+      latency: 0,
+      downloadThroughput: offline ? 0 : -1,
+      uploadThroughput: offline ? 0 : -1
+    });
+    await sleep(300);
+  }
+
   async screenshot(file) {
     const { data } = await this.send('Page.captureScreenshot', {
       format: 'png',

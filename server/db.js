@@ -169,6 +169,19 @@ export function ensureDocumentationColumns() {
   }
 }
 
+/**
+ * A note that is still 'pending' at boot was interrupted by a restart. Mark it
+ * failed so the family file never shows an empty document as final.
+ */
+export function failOrphanedNotes() {
+  const result = db
+    .prepare(
+      "UPDATE documentation_notes SET status = 'failed', error = ? WHERE status = 'pending'"
+    )
+    .run('Documentation generation was interrupted. The completion is recorded.');
+  return result.changes ?? 0;
+}
+
 export function isSeeded() {
   return (one('SELECT COUNT(*) AS n FROM families')?.n ?? 0) > 0;
 }

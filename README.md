@@ -125,6 +125,32 @@ Aligned in style to Michigan pre-K / Wayne Metro scope and sequence: dialogic
 reading, letter knowledge, counting in daily routines, and family conversation
 prompts. All demo content is synthetic.
 
+## Offline behaviour
+
+The parent view is built to keep working when the connection drops:
+
+- The latest engagement and activity are cached on the device after every
+  successful load.
+- A service worker caches the app shell, so the page still opens offline (needs
+  a secure context: localhost or HTTPS).
+- Voice notes and completion taps go into an IndexedDB outbox when the network
+  is down. The parent sees "waiting to send", the queue survives a reload, and
+  it flushes on reconnect or on the next retry tick.
+- Every queued action carries a client id, so a replayed flush cannot create a
+  second completion or a duplicate voice note.
+
+## Documentation safety
+
+- Notes are only ever stored with their body. An empty or too-short Wonder
+  output is treated as a failure, never written as a document.
+- The family file shows a generating state until the body lands, a plain
+  failure state if generation fails, and a retry that regenerates without
+  touching the completion.
+- Pending notes interrupted by a server restart are marked failed at boot, so
+  nothing sits in an eternal "in progress" state.
+- The Wonder payload includes the family's ready voice reply, so the note can
+  cite the parent's own words under Family Strengths.
+
 ## Health
 
 `GET /health` and `GET /api/health` return the same payload, including whether
@@ -139,6 +165,8 @@ node tools/verify-contract.mjs  # outgoing API shapes and locked prompts
 node tools/verify-stage2.mjs    # live translation, or stub-mode honesty
 node tools/verify-stage3.mjs    # voice note -> ASR -> English -> advocate inbox
 node tools/verify-stage4.mjs    # completion -> Wonder note, via UI and SQLite
+node tools/verify-hardening.mjs # empty-note guards, orphan cleanup, voice-reply payload
+node tools/verify-stage5.mjs    # offline cache + outbox, network actually cut
 ```
 
 Screenshots land in `artifacts/` (not committed). `verify-stage2.mjs` switches
@@ -155,3 +183,5 @@ live acceptance run once `META_API_KEY` is present.
 - Stage 4: parent confirmation, completion event, Wonder documentation note,
   idempotent by device id, with an honest pending/failed state and retry if
   Wonder cannot write the note.
+- Stage 5: cached parent view, offline outbox for voice notes and completions,
+  flush on reconnect, idempotent across the flush.
