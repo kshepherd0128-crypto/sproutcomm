@@ -28,38 +28,51 @@ function requireKey() {
   if (!config.meta.apiKey) throw httpError(503, metaKeyProblem(), { code: 'missing_meta_key' });
 }
 
-async function metaFetch(url, init, { timeoutMs = 120000 } = {}) {
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function metaFetch(url, init, { timeoutMs = 60000, retries = 2 } = {}) {
   requireKey();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const started = Date.now();
-  try {
-    const res = await fetch(url, {
-      ...init,
-      headers: {
-        authorization: `Bearer ${config.meta.apiKey}`,
-        ...(init.headers || {})
-      },
-      signal: controller.signal
-    });
-    const text = await res.text();
-    if (!res.ok) {
-      // Upstream error text can contain request details. Keep it short and do
-      // not echo anything that could include the key.
-      throw httpError(502, `Meta API returned ${res.status} from ${new URL(url).pathname}`, {
-        code: 'upstream_error',
-        upstreamStatus: res.status,
-        upstreamDetail: text.slice(0, 400).replace(config.meta.apiKey, '[redacted]')
+
+  for (let attempt = 0; ; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const started = Date.now();
+    try {
+      const res = await fetch(url, {
+        ...init,
+        headers: {
+          authorization: `Bearer ${config.meta.apiKey}`,
+          ...(init.headers || {})
+        },
+        signal: controller.signal
       });
+      const text = await res.text();
+
+      // A live demo cannot afford a transient 429 or 5xx. Retry briefly.
+      if (!res.ok && attempt < retries && (res.status === 429 || res.status >= 500)) {
+        clearTimeout(timer);
+        await sleep(600 * (attempt + 1));
+        continue;
+      }
+
+      if (!res.ok) {
+        // Upstream error text can contain request details. Keep it short and do
+        // not echo anything that could include the key.
+        throw httpError(502, `Meta API returned ${res.status} from ${new URL(url).pathname}`, {
+          code: 'upstream_error',
+          upstreamStatus: res.status,
+          upstreamDetail: text.slice(0, 400).replace(config.meta.apiKey, '[redacted]')
+        });
+      }
+      return { json: JSON.parse(text), ms: Date.now() - started };
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        throw httpError(504, 'Meta API request timed out', { code: 'upstream_timeout' });
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-    return { json: JSON.parse(text), ms: Date.now() - started };
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      throw httpError(504, 'Meta API request timed out', { code: 'upstream_timeout' });
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
   }
 }
 

@@ -497,8 +497,8 @@ function renderParent() {
         ${textMode
           ? `<p class="msg-body">${esc(m.body ?? '')}</p>`
           : `<p class="msg-body" style="font-size:17px;color:#5d6d63">${esc('Voice message from your advocate')}</p>`}
-        <button class="listen-btn" data-action="listen" type="button">
-          ${ICON.speaker}<span>${esc(t.listen)}</span>
+        <button class="listen-btn ${state.speaking ? 'playing' : ''}" data-action="listen" type="button">
+          ${state.speaking ? ICON.stop : ICON.speaker}<span>${esc(t.listen)}</span>
         </button>
       </section>
 
@@ -560,11 +560,24 @@ function speak() {
     return;
   }
 
+  const locale = SPEECH_LOCALE[m.lang] ?? 'en-US';
   const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = SPEECH_LOCALE[m.lang] ?? 'en-US';
+  utter.lang = locale;
   utter.rate = 0.92;
+
+  // Prefer a voice that actually matches the home language; otherwise the
+  // phone may read Arabic with an English voice.
+  const voices = window.speechSynthesis.getVoices?.() ?? [];
+  const base = locale.split('-')[0];
+  const match = voices.find((v) => v.lang.replace('_', '-').toLowerCase().startsWith(base));
+  if (match) utter.voice = match;
+
   utter.onend = () => { state.speaking = false; render(); };
-  utter.onerror = () => { state.speaking = false; render(); };
+  utter.onerror = () => {
+    state.speaking = false;
+    render();
+    toast('Audio is not available on this phone');
+  };
 
   state.speaking = true;
   window.speechSynthesis.speak(utter);
