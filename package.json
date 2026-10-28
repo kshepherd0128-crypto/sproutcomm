@@ -1,0 +1,14 @@
+{
+  "name": "sproutcomm",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Home-language family engagement channel for Head Start programs",
+  "scripts": {
+    "start": "node server/index.js",
+    "seed": "node server/seed.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}
