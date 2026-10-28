@@ -19,7 +19,9 @@ tools/        Real-browser verification driver (CDP) + stage scripts
 data/         Runtime SQLite database and audio (gitignored)
 ```
 
-- Two views in one app: **ADVOCATE** and **PARENT**, chosen at entry.
+- Two views in one app: **ADVOCATE** and **PARENT**. Staff sign in; the
+  parent front door is a per-family link (`/f/<token>`) that starts a
+  family-pinned session and nothing else.
 - Parents get a cached latest engagement, a listen button, and a queue for
   outbound actions that syncs when connectivity returns.
 - All AI calls are proxied server-side. The browser never sees `META_API_KEY`
@@ -52,13 +54,21 @@ takes precedence. The key is never written to the repo and never logged.
 
 ## Demo entry
 
-| Role | Passcode |
-| --- | --- |
-| Program staff | `1111` |
-| Family | `2222` |
+Staff: passcode `1111` at `/`.
 
-Families are chosen from a short list on the parent entry screen. This is a
-demo affordance for the slice, not authentication.
+Families: there is no family picker and no shared parent passcode. Each family
+has its own token link, shown on the family file in the advocate view:
+
+```
+http://localhost:8787/f/8W8mTbguhUiATx9mB8o9sQ
+```
+
+The token is the parent's credential. A parent session is pinned to the family
+behind that token: the parent API takes no family id, every advocate route
+rejects a parent session, and the token is stripped from the address bar once
+the session exists. Tokens are redacted from server logs.
+
+This is demo-grade access, not production authentication.
 
 ## Languages
 
@@ -74,14 +84,27 @@ Aligned in style to Michigan pre-K / Wayne Metro scope and sequence: dialogic
 reading, letter knowledge, counting in daily routines, and family conversation
 prompts. All demo content is synthetic.
 
+## Health
+
+`GET /health` and `GET /api/health` return the same payload, including whether
+the AI proxy has a key (`ai_configured`).
+
 ## Verification
 
 ```bash
-node tools/verify-stage1.mjs                 # real Chromium at 390x844
+node tools/verify-stage1.mjs    # real Chromium at 390x844, token entry, RTL
+node tools/verify-security.mjs  # family isolation across sessions
+node tools/verify-contract.mjs  # outgoing API shapes and locked prompts
+node tools/verify-stage2.mjs    # live translation, or stub-mode honesty
 ```
 
-Screenshots land in `artifacts/` (not committed).
+Screenshots land in `artifacts/` (not committed). `verify-stage2.mjs` switches
+between live and stub checks based on `/health`, so the same command is the
+live acceptance run once `META_API_KEY` is present.
 
 ## Status
 
-Built in gated stages. Stage 1: scaffold, both views, synthetic data, no AI.
+- Stage 1: scaffold, both views, synthetic data, token links.
+- Stage 2: advocate send with live Spark translation into Arabic and Bangla,
+  parent view in the home language. Live call pending a server key; without
+  one the app refuses to send and says why.

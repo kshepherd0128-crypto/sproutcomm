@@ -2,6 +2,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { config } from './config.js';
 
@@ -20,6 +21,7 @@ db.exec(`
     child_name    TEXT NOT NULL,
     child_age     INTEGER NOT NULL,
     home_language TEXT NOT NULL,          -- ar | bn | en | syl
+    access_token  TEXT,                   -- parent front door: /f/<token>
     created_at    TEXT NOT NULL
   );
 
@@ -137,6 +139,22 @@ export function transaction(fn) {
     db.exec('ROLLBACK');
     throw err;
   }
+}
+
+/**
+ * Every family has an unguessable access token. The parent front door is
+ * /f/<token>: possession of the link is the parent's credential, and the
+ * session it creates is pinned to that one family.
+ */
+export function ensureFamilyTokens() {
+  const columns = db.prepare('PRAGMA table_info(families)').all();
+  if (!columns.some((c) => c.name === 'access_token')) {
+    db.exec('ALTER TABLE families ADD COLUMN access_token TEXT');
+  }
+  const missing = db.prepare('SELECT id FROM families WHERE access_token IS NULL OR access_token = \'\'').all();
+  const update = db.prepare('UPDATE families SET access_token = ? WHERE id = ?');
+  for (const row of missing) update.run(randomBytes(16).toString('base64url'), row.id);
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_families_token ON families (access_token)');
 }
 
 export function isSeeded() {

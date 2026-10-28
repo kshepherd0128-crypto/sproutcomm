@@ -37,6 +37,11 @@ export function getFamily(id) {
   return one('SELECT * FROM families WHERE id = ?', id);
 }
 
+export function getFamilyByToken(token) {
+  if (!token || typeof token !== 'string' || token.length < 16 || token.length > 128) return null;
+  return one('SELECT * FROM families WHERE access_token = ?', token);
+}
+
 function familyShape(f) {
   if (!f) return null;
   const meta = language(f.home_language);
@@ -79,6 +84,7 @@ export function listFamilies() {
 
   return rows.map((r) => ({
     ...familyShape(r),
+    access_path: `/f/${r.access_token}`,
     last_message_at: r.last_message_at,
     last_status: r.last_status,
     last_activity: r.last_activity,
@@ -217,7 +223,13 @@ export async function createEngagement({ familyId, activityId, bodyEn, advocateN
     }
   });
 
-  return { messageId, lang, translated, activityTranslation };
+  return {
+    messageId,
+    lang,
+    translated,
+    activityTranslation,
+    accessPath: `/f/${family.access_token}`
+  };
 }
 
 function translationFor(messageId, lang) {
@@ -363,7 +375,7 @@ export function getFamilyDetail(familyId) {
   }));
 
   return {
-    family: familyShape(family),
+    family: { ...familyShape(family), access_path: `/f/${family.access_token}` },
     messages,
     notes,
     stats: {

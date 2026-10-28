@@ -51,8 +51,7 @@ export const config = {
     }
   },
   demo: {
-    advocatePasscode: process.env.ADVOCATE_PASSCODE || '1111',
-    parentPasscode: process.env.PARENT_PASSCODE || '2222'
+    advocatePasscode: process.env.ADVOCATE_PASSCODE || '1111'
   }
 };
 

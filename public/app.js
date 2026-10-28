@@ -54,7 +54,10 @@ const state = {
   parentError: null,
   parentLoading: false,
   toast: null,
-  speaking: false
+  speaking: false,
+  aiConfigured: null,
+  linkError: null,
+  booting: false
 };
 
 const SESSION_KEY = 'sproutcomm.session';
@@ -188,31 +191,12 @@ function renderEntry() {
         </div>
         <button class="btn btn-ghost btn-block" data-action="entry-back">Back</button>
       ` : `
-        <div class="stack">
-          <div class="eyebrow">Choose your family</div>
-          <div class="role-list">
-            ${(state.families ?? []).map((f) => `
-              <button class="role-btn ${state.entryFamilyId === f.id ? 'selected' : ''}" data-action="choose-family" data-family="${esc(f.id)}">
-                <span class="glyph">${ICON.heart}</span>
-                <span>
-                  <strong>${esc(f.family_name)}</strong>
-                  <span>${esc(f.child_name)}, age ${esc(f.child_age)} · ${esc(f.language.nativeName)}</span>
-                </span>
-              </button>
-            `).join('') || '<div class="empty">Loading families…</div>'}
-          </div>
-
-          <form data-form="parent-login" class="card stack">
-            <div class="field">
-              <label for="par-pin">4-digit passcode</label>
-              <input id="par-pin" class="pin-input" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" />
-            </div>
-            ${errorNotice(state.entryError)}
-            <button class="btn btn-primary btn-block" type="submit" ${state.entryBusy || !state.entryFamilyId ? 'disabled' : ''}>
-              ${state.entryBusy ? '<span class="spinner"></span>' : 'Open my family'}
-            </button>
-          </form>
-          <p class="hint">Demo passcode: 2222</p>
+        <div class="card stack">
+          <div class="eyebrow">Family access</div>
+          <p style="font-size:19px;line-height:1.4">Your family page opens from the link your advocate sent you.</p>
+          <p class="small muted">The link is yours alone. It opens only your family's messages and activities.</p>
+          ${state.linkError ? errorNotice(state.linkError) : ''}
+          ${state.booting ? '<div class="notice">Opening your family page…</div>' : ''}
         </div>
         <button class="btn btn-ghost btn-block" data-action="entry-back">Back</button>
       `}
@@ -246,6 +230,8 @@ function renderAdvocate() {
   const compose = state.compose;
   const family = families?.find((f) => f.id === compose.familyId);
   const activity = activities?.find((a) => a.id === compose.activityId);
+  const translationOffline = state.aiConfigured === false;
+  const languageBlocked = translationOffline && family && family.home_language !== 'en';
 
   return `
   <div class="screen">
@@ -255,6 +241,12 @@ function renderAdvocate() {
         <div class="eyebrow">Tonight</div>
         <h2>Send an engagement</h2>
       </div>
+
+      ${state.aiConfigured === false ? `
+        <div class="notice warn">
+          <strong>Translation is offline on this server.</strong>
+          META_API_KEY is not set, so no message can be translated. English families still work; Arabic and Bangla sends stop before delivery rather than going out untranslated.
+        </div>` : ''}
 
       ${state.sendResult ? renderSendResult(state.sendResult) : ''}
 
@@ -297,10 +289,12 @@ function renderAdvocate() {
 
         ${errorNotice(state.sendError)}
 
-        <button class="btn btn-primary btn-block" type="submit" ${state.sending || !families ? 'disabled' : ''}>
+        <button class="btn btn-primary btn-block" type="submit" ${state.sending || !families || languageBlocked ? 'disabled' : ''}>
           ${state.sending ? '<span class="spinner"></span> Translating…' : 'Send to family'}
         </button>
-        <p class="hint" style="text-align:left">The message is translated before it is sent. Nothing is sent if translation fails.</p>
+        <p class="hint" style="text-align:left">${languageBlocked
+          ? 'Sending is paused because this family needs a translation and the AI proxy has no key.'
+          : 'The message is translated before it is sent. Nothing is sent if translation fails.'}</p>
       </form>
 
       <div class="section-title">Families</div>
@@ -345,6 +339,7 @@ function renderSendResult(result) {
       </div>
       ${t?.body ? `<div class="compose-preview" dir="${esc(t.dir)}">${esc(t.body)}</div>` : '<div class="small muted">Delivered as a voice-first card.</div>'}
       <div class="small muted">The family opens this on their phone with a listen option.</div>
+      ${result.access_path ? `<button class="btn btn-secondary btn-block" data-action="open-parent" data-path="${esc(result.access_path)}">Open family view</button>` : ''}
     </div>`;
 }
 
@@ -370,6 +365,20 @@ function renderFamilyDetail() {
         <span class="tag plain">${d.stats.replies} voice repl${d.stats.replies === 1 ? 'y' : 'ies'}</span>
         <span class="tag amber">${d.stats.notes} 1302.50 note${d.stats.notes === 1 ? '' : 's'}</span>
       </div>
+
+      ${f.access_path ? `
+        <div class="card stack" style="padding:14px">
+          <div class="row" style="justify-content:space-between">
+            <span class="eyebrow">Family link</span>
+            <span class="tag plain">private</span>
+          </div>
+          <div class="small muted">This is the parent's front door. It opens only this family's page.</div>
+          <code style="font-size:12px;word-break:break-all;background:#fbf6ea;padding:8px 10px;border-radius:10px">${esc(location.origin + f.access_path)}</code>
+          <div class="row" style="gap:8px">
+            <button class="btn btn-ghost" style="flex:1;min-height:48px" data-action="copy-link" data-path="${esc(f.access_path)}">Copy link</button>
+            <button class="btn btn-secondary" style="flex:1;min-height:48px" data-action="open-parent" data-path="${esc(f.access_path)}">Open family view</button>
+          </div>
+        </div>` : ''}
 
       <div class="section-title">Engagements</div>
       <div class="thread">
@@ -566,17 +575,6 @@ function speak() {
  * Data loading
  * ------------------------------------------------------------------ */
 
-async function loadEntryFamilies() {
-  try {
-    const res = await fetch('/api/parent/families');
-    if (!res.ok) throw new Error('Could not load families');
-    const data = await res.json();
-    state.families = data.families;
-  } catch {
-    // Public family picker is only used for the demo entry screen.
-  }
-}
-
 async function loadAdvocate() {
   try {
     const [families, activities] = await Promise.all([
@@ -672,20 +670,9 @@ document.addEventListener('click', async (event) => {
   if (action === 'choose-role') {
     state.entryMode = el.dataset.role;
     state.entryError = null;
-    if (state.entryMode === 'parent' && !state.families) {
-      state.families = null;
-      render();
-      await loadEntryFamilies();
-    }
+    state.linkError = null;
     render();
     document.querySelector('input')?.focus();
-    return;
-  }
-
-  if (action === 'choose-family') {
-    state.entryFamilyId = el.dataset.family;
-    render();
-    document.getElementById('par-pin')?.focus();
     return;
   }
 
@@ -712,6 +699,22 @@ document.addEventListener('click', async (event) => {
   if (action === 'open-family') {
     state.screen = 'family';
     await loadFamilyDetail(el.dataset.family);
+    return;
+  }
+
+  if (action === 'open-parent') {
+    window.location.href = el.dataset.path;
+    return;
+  }
+
+  if (action === 'copy-link') {
+    const url = location.origin + el.dataset.path;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Family link copied');
+    } catch {
+      toast(url);
+    }
     return;
   }
 
@@ -745,31 +748,6 @@ document.addEventListener('submit', async (event) => {
       state.entryBusy = false;
       render();
       await loadAdvocate();
-    } catch (err) {
-      state.entryError = err;
-      state.entryBusy = false;
-      render();
-    }
-    return;
-  }
-
-  if (kind === 'parent-login') {
-    if (!state.entryFamilyId) return;
-    const passcode = form.querySelector('#par-pin')?.value ?? '';
-    state.entryBusy = true;
-    state.entryError = null;
-    render();
-    try {
-      const result = await api('/api/session', {
-        method: 'POST',
-        body: { role: 'parent', passcode, family_id: state.entryFamilyId }
-      });
-      state.session = { token: result.token, role: 'parent', family: result.family };
-      saveSession();
-      state.screen = 'parent';
-      state.entryBusy = false;
-      render();
-      await loadParentFeed();
     } catch (err) {
       state.entryError = err;
       state.entryBusy = false;
@@ -848,11 +826,56 @@ document.addEventListener('change', (event) => {
 
 /* ------------------------------------------------------------------ */
 
-restoreSession();
-render();
+// Parent front door: /f/<token> starts a family-pinned session.
+function linkToken() {
+  const match = location.pathname.match(/^\/f\/([A-Za-z0-9_-]+)\/?$/);
+  return match ? match[1] : null;
+}
 
-if (state.screen === 'advocate') loadAdvocate();
-else if (state.screen === 'parent') loadParentFeed();
-else loadEntryFamilies().then(() => {
-  if (state.screen === 'entry' && state.entryMode === 'parent') render();
-});
+async function bootFromLink(token) {
+  state.booting = true;
+  state.linkError = null;
+  state.screen = 'entry';
+  state.entryMode = 'parent';
+  render();
+  try {
+    const result = await api('/api/session', { method: 'POST', body: { role: 'parent', token } });
+    state.session = { token: result.token, role: 'parent', family: result.family };
+    saveSession();
+    // Keep the link out of the address bar once the session exists.
+    history.replaceState({}, '', '/');
+    state.booting = false;
+    state.screen = 'parent';
+    render();
+    await loadParentFeed();
+  } catch (err) {
+    state.booting = false;
+    state.linkError = err;
+    state.screen = 'entry';
+    state.entryMode = 'parent';
+    render();
+  }
+}
+
+async function boot() {
+  try {
+    const res = await fetch('/health');
+    const health = await res.json();
+    state.aiConfigured = Boolean(health.ai_configured);
+  } catch {
+    state.aiConfigured = null;
+  }
+
+  const token = linkToken();
+  if (token) {
+    await bootFromLink(token);
+    return;
+  }
+
+  restoreSession();
+  render();
+  if (state.screen === 'advocate') loadAdvocate();
+  else if (state.screen === 'parent') loadParentFeed();
+}
+
+boot();

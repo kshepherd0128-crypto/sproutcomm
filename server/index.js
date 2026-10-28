@@ -16,11 +16,13 @@ import { seedIfEmpty } from './seed.js';
 import {
   createEngagement,
   getFamily,
+  getFamilyByToken,
   getFamilyDetail,
   getFeed,
   listActivities,
   listFamilies
 } from './store.js';
+import { ensureFamilyTokens } from './db.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 
@@ -83,12 +85,16 @@ function route(method, pattern, handler) {
   routes.push({ method, pattern, handler });
 }
 
-route('GET', '/api/health', async () => ({
-  ok: true,
-  ai_configured: hasMetaKey(),
-  models_allowed: ['muse-spark-1.3', 'muse-wonder-1.0', 'muse-voice-transcribe-1.0'],
-  time: new Date().toISOString()
-}));
+function healthPayload() {
+  return {
+    ok: true,
+    ai_configured: hasMetaKey(),
+    models_allowed: ['muse-spark-1.3', 'muse-wonder-1.0', 'muse-voice-transcribe-1.0'],
+    time: new Date().toISOString()
+  };
+}
+
+route('GET', '/api/health', async () => healthPayload());
 
 route('GET', '/api/languages', async () => ({ languages: publicLanguages() }));
 
@@ -102,11 +108,11 @@ route('POST', '/api/session', async (req) => {
     return { token: newSession('advocate'), role: 'advocate' };
   }
   if (role === 'parent') {
-    const family = getFamily(String(body.family_id || ''));
-    if (!family) throw httpError(404, 'Family not found');
-    if (String(body.passcode || '') !== config.demo.parentPasscode) {
-      throw httpError(401, 'That passcode did not match');
-    }
+    // The parent front door is the family token link (/f/<token>). The
+    // session it creates is pinned to that one family and nothing in the
+    // parent API accepts a family id.
+    const family = getFamilyByToken(String(body.token || ''));
+    if (!family) throw httpError(401, 'This family link is not valid');
     return {
       token: newSession('parent', family.id),
       role: 'parent',
@@ -139,19 +145,6 @@ route('GET', '/api/families/:id', async (req, params) => {
   return detail;
 });
 
-// Demo family picker: names and languages only, no messages, no notes.
-// Real deployments replace this with the program's own enrolment check.
-route('GET', '/api/parent/families', async () => {
-  const families = listFamilies().map((f) => ({
-    id: f.id,
-    family_name: f.family_name,
-    child_name: f.child_name,
-    child_age: f.child_age,
-    language: f.language
-  }));
-  return { families };
-});
-
 route('GET', '/api/parent/feed', async (req) => {
   const session = requireSession(req, 'parent');
   const feed = getFeed(session.familyId);
@@ -167,7 +160,11 @@ route('POST', '/api/messages', async (req) => {
     activityId: body.activity_id,
     bodyEn: body.body_en
   });
-  return { message_id: result.messageId, feed: getFeed(body.family_id) };
+  return {
+    message_id: result.messageId,
+    access_path: result.accessPath,
+    feed: getFeed(body.family_id)
+  };
 });
 
 const server = http.createServer(async (req, res) => {
@@ -175,9 +172,22 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
 
-  res.on('finish', () => logRequest(req.method, pathname, res.statusCode, Date.now() - started));
+  // Never log a family access token: /f/<token> is a credential.
+  const logPath = pathname.startsWith('/f/') ? '/f/[redacted]' : pathname;
+  res.on('finish', () => logRequest(req.method, logPath, res.statusCode, Date.now() - started));
+
+  if (pathname === '/health') {
+    sendJson(res, 200, healthPayload());
+    return;
+  }
 
   if (!pathname.startsWith('/api/')) {
+    // Parent front door: /f/<token> serves the app, which exchanges the token
+    // for a family-pinned session.
+    if (/^\/f\/[A-Za-z0-9_-]+\/?$/.test(pathname)) {
+      serveStatic(req, res, '/index.html');
+      return;
+    }
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       sendError(res, 405, 'Method not allowed');
       return;
@@ -238,7 +248,9 @@ function lanAddress() {
   return 'localhost';
 }
 
+ensureFamilyTokens();
 seedIfEmpty();
+ensureFamilyTokens();
 
 server.listen(config.port, config.host, () => {
   console.log(`SproutComm server on http://localhost:${config.port}`);

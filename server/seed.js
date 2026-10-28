@@ -1,7 +1,7 @@
 // Synthetic demo data. Every family, child and message here is invented.
 // No real Head Start family data is ever used in this project.
 
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { db, isSeeded, one, transaction } from './db.js';
 
 const now = () => new Date().toISOString();
@@ -175,8 +175,8 @@ export function seedIfEmpty({ force = false } = {}) {
     }
 
     const insertFamily = db.prepare(`
-      INSERT INTO families (id, family_name, child_name, child_age, home_language, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO families (id, family_name, child_name, child_age, home_language, access_token, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     const insertMessage = db.prepare(`
       INSERT INTO messages (id, family_id, activity_id, body_en, status, participants, completed_at, created_at, source)
@@ -197,6 +197,7 @@ export function seedIfEmpty({ force = false } = {}) {
         entry.family.child_name,
         entry.family.child_age,
         entry.family.home_language,
+        randomBytes(16).toString('base64url'),
         created
       );
 

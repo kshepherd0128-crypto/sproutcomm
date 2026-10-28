@@ -6,7 +6,8 @@
   "description": "Home-language family engagement channel for Head Start programs",
   "scripts": {
     "start": "node server/index.js",
-    "seed": "node server/seed.js"
+    "seed": "node server/seed.js",
+    "verify": "node tools/verify-stage1.mjs && node tools/verify-security.mjs && node tools/verify-contract.mjs && node tools/verify-stage2.mjs"
   },
   "engines": {
     "node": ">=22.5"
