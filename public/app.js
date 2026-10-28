@@ -908,22 +908,10 @@ function signOut() {
  * Render + events
  * ------------------------------------------------------------------ */
 
-function captureFormState() {
-  const form = document.querySelector('form[data-form="compose"]');
-  if (!form) return;
-  const family = form.querySelector('[name=family_id]')?.value;
-  const activity = form.querySelector('[name=activity_id]')?.value;
-  const body = form.querySelector('[name=body_en]')?.value;
-  if (family) state.compose.familyId = family;
-  if (activity) state.compose.activityId = activity;
-  if (body !== undefined) state.compose.body = body;
-}
-
 function render() {
   const active = document.activeElement;
   const hadBodyFocus = active?.id === 'c-body';
   const caret = hadBodyFocus ? active.selectionStart : null;
-  captureFormState();
 
   let html = '';
   if (state.screen === 'entry') html = renderEntry();
@@ -1096,6 +1084,10 @@ document.addEventListener('submit', async (event) => {
       render();
     }
   }
+});
+
+document.addEventListener('input', (event) => {
+  if (event.target.id === 'c-body') state.compose.body = event.target.value;
 });
 
 document.addEventListener('change', (event) => {
