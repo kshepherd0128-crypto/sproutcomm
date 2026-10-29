@@ -89,6 +89,13 @@ Then:
    and a play button. The family file keeps the same reply under its
    engagement.
 
+The transcription response carries text but no language field, so the server
+identifies the transcript's own language (Unicode script plus a small stopword
+comparison) and stores it as `transcript_lang`. That language — not the family
+profile — decides whether an English rendering is needed: a German reply from
+an English-profile family is translated, while an English transcript makes no
+translation call and is stored unchanged.
+
 Notes are capped at two minutes, deduplicated by a device-generated id, and
 served through signed URLs so `<audio>` works without a bearer header. If ASR
 finds no speech, the reply is marked `no_speech` and the parent is asked to try
@@ -164,6 +171,7 @@ node tools/verify-security.mjs  # family isolation across sessions
 node tools/verify-contract.mjs  # outgoing API shapes and locked prompts
 node tools/verify-stage2.mjs    # live translation, or stub-mode honesty
 node tools/verify-stage3.mjs    # voice note -> ASR -> English -> advocate inbox
+node tools/verify-voicereply-language.mjs # transcript language, not profile, gates the English rendering
 node tools/verify-stage4.mjs    # completion -> Wonder note, via UI and SQLite
 node tools/verify-hardening.mjs # empty-note guards, orphan cleanup, voice-reply payload
 node tools/verify-stage5.mjs    # offline cache + outbox, network actually cut

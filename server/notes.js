@@ -12,6 +12,7 @@ import { config } from './config.js';
 import { all, one, run } from './db.js';
 import { httpError } from './http.js';
 import { MAX_NOTE_MS, durationMs, toWav16k } from './audio.js';
+import { detectLanguage, normalizeLanguageCode } from './lang-detect.js';
 import { transcribe, translateToEnglish } from './meta.js';
 
 const nowIso = () => new Date().toISOString();
@@ -108,17 +109,26 @@ export async function processVoiceNote(id) {
       return;
     }
 
+    // The transcript's own language decides whether the advocate needs an
+    // English rendering. The family profile language is irrelevant here: an
+    // English-profile family can speak German, and today's profile-keyed
+    // passthrough left that reply untranslated. A non-English profile keeps
+    // its existing behaviour (it still asks Spark), while an English profile
+    // makes no extra call when the transcript itself is English.
+    const transcriptLang = normalizeLanguageCode(result.language) || detectLanguage(transcript);
     let english = transcript;
-    if (note.lang !== 'en') {
+    if (transcriptLang !== 'en' || note.lang !== 'en') {
       english = (await translateToEnglish(transcript)).text;
     }
 
     run(
       `UPDATE voice_notes
-          SET status = 'ready', transcript = ?, transcript_en = ?, duration_ms = ?, error = NULL
+          SET status = 'ready', transcript = ?, transcript_en = ?, transcript_lang = ?,
+              duration_ms = ?, error = NULL
         WHERE id = ?`,
       transcript,
       english,
+      transcriptLang,
       result.durationMs ?? note.duration_ms,
       id
     );
@@ -161,6 +171,7 @@ export function shapeNote(v) {
     lang: v.lang,
     duration_ms: v.duration_ms,
     transcript: v.transcript,
+    transcript_lang: v.transcript_lang,
     transcript_en: v.transcript_en,
     error: v.error,
     audio_url: v.audio_path ? noteAudioUrl(v.id) : null

@@ -81,6 +81,7 @@ db.exec(`
     lang          TEXT NOT NULL,
     duration_ms   INTEGER,
     transcript    TEXT,
+    transcript_lang TEXT,                -- language detected in the transcript
     transcript_en TEXT,
     status        TEXT NOT NULL,          -- received | transcribing | ready | failed
     error         TEXT,
@@ -157,6 +158,13 @@ export function ensureFamilyTokens() {
   const update = db.prepare('UPDATE families SET access_token = ? WHERE id = ?');
   for (const row of missing) update.run(randomBytes(16).toString('base64url'), row.id);
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_families_token ON families (access_token)');
+}
+
+export function ensureVoiceNoteColumns() {
+  const columns = db.prepare('PRAGMA table_info(voice_notes)').all();
+  if (!columns.some((c) => c.name === 'transcript_lang')) {
+    db.exec('ALTER TABLE voice_notes ADD COLUMN transcript_lang TEXT');
+  }
 }
 
 export function ensureDocumentationColumns() {

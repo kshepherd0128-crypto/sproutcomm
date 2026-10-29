@@ -45,7 +45,7 @@ export const config = {
   certDir: new URL('../data/certs/', import.meta.url).pathname,
   host: process.env.HOST || '0.0.0.0',
   dbPath: process.env.SPROUT_DB || new URL('../data/sproutcomm.db', import.meta.url).pathname,
-  audioDir: new URL('../data/audio/', import.meta.url).pathname,
+  audioDir: process.env.SPROUT_AUDIO_DIR || new URL('../data/audio/', import.meta.url).pathname,
   // Signs short-lived audio URLs so <audio> can play a note without an
   // Authorization header. Rotates on restart, which is fine for this slice.
   audioSecret: process.env.AUDIO_URL_SECRET || randomBytes(24).toString('hex'),

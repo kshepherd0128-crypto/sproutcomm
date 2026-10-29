@@ -1169,8 +1169,8 @@ function renderInbox() {
           ` : n.status === 'ready' ? `
             <p class="translated">${esc(n.transcript_en || '')}</p>
             <details>
-              <summary>Original (${esc(n.lang.toUpperCase())})</summary>
-              <div class="small" dir="${n.lang === 'ar' ? 'rtl' : 'ltr'}" style="margin-top:6px">${esc(n.transcript || '')}</div>
+              <summary>Original (${esc((n.transcript_lang || n.lang).toUpperCase())})</summary>
+              <div class="small" dir="${(n.transcript_lang || n.lang) === 'ar' ? 'rtl' : 'ltr'}" style="margin-top:6px">${esc(n.transcript || '')}</div>
             </details>
             ${n.audio_url ? `<audio controls preload="metadata" src="${esc(n.audio_url)}"></audio>` : ''}
           ` : `

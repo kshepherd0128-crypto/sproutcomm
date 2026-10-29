@@ -137,6 +137,13 @@ try {
     void probe;
 
     await page.waitFor('document.body.innerText.includes("Family replies")', { timeout: 15000 });
+    // The inbox refreshes on a 6s interval; wait for the live translation to
+    // land instead of sampling the screen while the note still says
+    // "Transcribing".
+    await page.waitFor(
+      `document.body.innerText.includes(${JSON.stringify(note.transcript_en.slice(0, 24))})`,
+      { timeout: 15000 }
+    );
     await page.screenshot(`${OUT}/stage3-inbox.png`);
     check('inbox card shows the English translation', (await page.text()).includes(note.transcript_en.slice(0, 24)));
 

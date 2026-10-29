@@ -33,7 +33,7 @@ import {
   listFamilies,
   retryNote
 } from './store.js';
-import { ensureDocumentationColumns, ensureFamilyTokens, failOrphanedNotes } from './db.js';
+import { ensureDocumentationColumns, ensureFamilyTokens, ensureVoiceNoteColumns, failOrphanedNotes } from './db.js';
 
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
 
@@ -361,6 +361,7 @@ function lanAddress() {
 
 ensureDocumentationColumns();
 ensureFamilyTokens();
+ensureVoiceNoteColumns();
 seedIfEmpty();
 ensureFamilyTokens();
 const orphaned = failOrphanedNotes();

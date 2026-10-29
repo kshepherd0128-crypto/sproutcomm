@@ -183,6 +183,15 @@ export async function transcribe(wavBuffer, filename = 'note.wav') {
   }
   return {
     transcript: json.transcript.trim(),
+    // The current ASR contract does not return a language. Read it when a
+    // future response does, so callers never have to guess against the wire
+    // shape. notes.js falls back to server/lang-detect.js when it is absent.
+    language:
+      typeof json.language === 'string'
+        ? json.language
+        : typeof json.detectedLanguage === 'string'
+          ? json.detectedLanguage
+          : null,
     durationMs: json.audioDurationMs ?? null,
     sessionId: json.sessionId ?? null,
     ms
