@@ -1,21 +1,63 @@
 // SproutComm client. Vanilla JS, no build step, no framework: this has to run
 // on a cheap Android phone over a weak connection.
 
+import { PARENT_LOCALES, PARENT_LOCALE_DIR, stringsFor } from './parent-strings.js';
+
 const root = document.getElementById('app');
 
 /* ------------------------------------------------------------------ *
- * Short UI strings. These are interface labels, not translated family
- * message content, and they stay tiny on purpose.
+ * Parent-view reading language. This is a view preference only: it is
+ * stored per family on this device and never sent to the server.
  * ------------------------------------------------------------------ */
 
-const UI_TEXT = {
-  ar: { listen: 'استمع', weDidIt: 'أنجزنا النشاط', voiceNote: 'ملاحظة صوتية', activity: 'نشاط الليلة', prompt: 'اسألوا طفلكم', minutes: 'دقائق', sent: 'تم الإرسال', done: 'وصلت ملاحظتكم', record: 'اضغط للتسجيل', stop: 'إيقاف', send: 'إرسال', cancel: 'إلغاء', chooseFile: 'اختيار تسجيل من الهاتف', sentNote: 'وصلت ملاحظتكم الصوتية', micOff: 'الميكروفون غير متاح. اختاروا تسجيلاً من هاتفكم.', whoJoined: 'من شارك الليلة؟', howLong: 'كم استغرق النشاط؟', confirm: 'تأكيد', noteSaved: 'تم التسجيل في ملف عائلتكم', savedOffline: 'تم الحفظ على هاتفكم. سيُرسل عند عودة الاتصال.', joined: { parent: 'أنا فقط', parent_child: 'أنا وطفلي', whole_family: 'كل العائلة', other_adult: 'شخص بالغ آخر' }, offlineNote: 'لا يوجد اتصال. هذه آخر رسالة محفوظة على هاتفكم. ما ترسلونه الآن سيُرسل عند عودة الاتصال.', waiting: 'في انتظار الإرسال', doneTag: 'تم', completedNote: 'وصل النشاط إلى مستشاركم. يُضاف الآن إلى ملف عائلتكم.', rtl: true },
-  bn: { listen: 'শুনুন', weDidIt: 'আমরা করেছি', voiceNote: 'কণ্ঠ বার্তা', activity: 'আজ রাতের কাজ', prompt: 'সন্তানকে জিজ্ঞাসা করুন', minutes: 'মিনিট', sent: 'পাঠানো হয়েছে', done: 'আপনার বার্তা পৌঁছেছে', record: 'রেকর্ড করতে চাপুন', stop: 'থামুন', send: 'পাঠান', cancel: 'বাতিল', chooseFile: 'ফোন থেকে রেকর্ডিং বাছুন', sentNote: 'আপনার কণ্ঠ বার্তা পৌঁছেছে', micOff: 'মাইক ব্যবহার করা যাচ্ছে না। ফোন থেকে রেকর্ডিং বেছে নিন।', whoJoined: 'আজ কে কে ছিলেন?', howLong: 'কাজটি কত সময় নিয়েছে?', confirm: 'নিশ্চিত করুন', noteSaved: 'আপনার পরিবারের ফাইলে লিপিবদ্ধ হয়েছে', savedOffline: 'ফোনে সংরক্ষিত হয়েছে। ইন্টারনেট ফিরলে পাঠানো হবে।', joined: { parent: 'শুধু আমি', parent_child: 'আমি ও আমার সন্তান', whole_family: 'পুরো পরিবার', other_adult: 'অন্য একজন প্রাপ্তবয়স্ক' }, offlineNote: 'ইন্টারনেট নেই। এটি আপনার সর্বশেষ সংরক্ষিত বার্তা। এখন যা পাঠাবেন, ইন্টারনেট ফিরলে পাঠানো হবে।', waiting: 'পাঠানোর অপেক্ষায়', doneTag: 'সম্পন্ন', completedNote: 'আপনার অ্যাডভোকেট এটি পেয়েছেন। কাজটি আপনার পরিবারের ফাইলে যোগ হচ্ছে।', rtl: false },
-  en: { listen: 'Listen', weDidIt: 'We did it', voiceNote: 'Voice note', activity: "Tonight's activity", prompt: 'Ask your child', minutes: 'min', sent: 'Sent', done: 'Your note was delivered', record: 'Tap to record', stop: 'Stop', send: 'Send', cancel: 'Cancel', chooseFile: 'Choose a recording', sentNote: 'Your voice note was delivered', micOff: 'The microphone is not available. Choose a recording from your phone.', whoJoined: 'Who joined tonight?', howLong: 'How long did it take?', confirm: 'Confirm', noteSaved: "Added to your family's file", savedOffline: 'Saved on your phone. It will be sent when you are back online.', joined: { parent: 'Just me', parent_child: 'Me and my child', whole_family: 'Whole family', other_adult: 'Another adult' }, offlineNote: 'You are offline. This is your last saved message; anything you send goes when you are back online.', waiting: 'waiting to send', doneTag: 'Done', completedNote: "Your advocate has it. This engagement is being added to your family's file.", rtl: false },
-  syl: { listen: 'শুনুন', weDidIt: 'আমরা করেছি', voiceNote: 'কণ্ঠ বার্তা', activity: 'আজ রাতের কাজ', prompt: 'সন্তানকে জিজ্ঞাসা করুন', minutes: 'মিনিট', sent: 'পাঠানো হয়েছে', done: 'আপনার বার্তা পৌঁছেছে', record: 'রেকর্ড করতে চাপুন', stop: 'থামুন', send: 'পাঠান', cancel: 'বাতিল', chooseFile: 'ফোন থেকে রেকর্ডিং বাছুন', sentNote: 'আপনার কণ্ঠ বার্তা পৌঁছেছে', micOff: 'মাইক ব্যবহার করা যাচ্ছে না। ফোন থেকে রেকর্ডিং বেছে নিন।', whoJoined: 'আজ কে কে ছিলেন?', howLong: 'কাজটি কত সময় নিয়েছে?', confirm: 'নিশ্চিত করুন', noteSaved: 'আপনার পরিবারের ফাইলে লিপিবদ্ধ হয়েছে', savedOffline: 'ফোনে সংরক্ষিত হয়েছে। ইন্টারনেট ফিরলে পাঠানো হবে।', joined: { parent: 'শুধু আমি', parent_child: 'আমি ও আমার সন্তান', whole_family: 'পুরো পরিবার', other_adult: 'অন্য একজন প্রাপ্তবয়স্ক' }, offlineNote: 'ইন্টারনেট নেই। এটি আপনার সর্বশেষ সংরক্ষিত বার্তা। এখন যা পাঠাবেন, ইন্টারনেট ফিরলে পাঠানো হবে।', waiting: 'পাঠানোর অপেক্ষায়', doneTag: 'সম্পন্ন', completedNote: 'আপনার অ্যাডভোকেট এটি পেয়েছেন। কাজটি আপনার পরিবারের ফাইলে যোগ হচ্ছে।', rtl: false }
+const UI_LANG_PREFIX = 'sproutcomm.ui-lang.';
+const LANG_LABEL_ID = {
+  en: 'languageEnglish',
+  ar: 'languageArabic',
+  bn: 'languageBangla',
+  syl: 'languageSylheti'
 };
+const JOINED_LABEL_ID = {
+  parent: 'joinedParent',
+  parent_child: 'joinedParentChild',
+  whole_family: 'joinedWholeFamily',
+  other_adult: 'joinedOtherAdult'
+};
+// Sylheti has no written UI strings. The app already showed Bangla labels to
+// a Sylheti-profile household, so keep that fallback; content stays audio-only.
+const PROFILE_FALLBACK = { syl: 'bn' };
 
-const ui = (code) => UI_TEXT[code] ?? UI_TEXT.en;
+function defaultUiLang(profile) {
+  if (PARENT_LOCALES.includes(profile)) return profile;
+  return PROFILE_FALLBACK[profile] ?? 'en';
+}
+
+function parentUiLang() {
+  const family = state.parentFeed?.family ?? state.session?.family;
+  let stored = null;
+  if (family?.id) {
+    try {
+      stored = localStorage.getItem(UI_LANG_PREFIX + family.id);
+    } catch {
+      stored = null;
+    }
+  }
+  if (PARENT_LOCALES.includes(stored)) return stored;
+  return defaultUiLang(family?.home_language);
+}
+
+function setParentUiLang(lang) {
+  if (!PARENT_LOCALES.includes(lang)) return;
+  const family = state.parentFeed?.family ?? state.session?.family;
+  if (family?.id) {
+    try {
+      localStorage.setItem(UI_LANG_PREFIX + family.id, lang);
+    } catch {
+      /* private mode: the switch still works for this view */
+    }
+  }
+  render();
+}
 
 const ICON = {
   leaf: `<svg viewBox="0 0 32 32" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 27V16"/><path d="M16 16c0-5 3.5-9 9-9 0 5-3.5 9-9 9Z"/><path d="M16 16c0-5-3.5-9-9-9 0 5 3.5 9 9 9Z"/></svg>`,
@@ -120,17 +162,36 @@ function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function fmtDate(iso) {
+const DATE_LOCALE = { en: 'en-US', ar: 'ar', bn: 'bn-BD' };
+
+function fmtDate(iso, lang = 'en') {
   if (!iso) return '';
   const d = new Date(iso);
   const today = new Date();
   const dayMs = 24 * 60 * 60 * 1000;
   const sameDay = d.toDateString() === today.toDateString();
   const yesterday = new Date(today.getTime() - dayMs).toDateString() === d.toDateString();
-  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  if (sameDay) return `Today, ${time}`;
-  if (yesterday) return `Yesterday, ${time}`;
-  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${time}`;
+  const locale = DATE_LOCALE[lang] ?? DATE_LOCALE.en;
+  const t = stringsFor(lang);
+  const sep = lang === 'ar' ? '، ' : ', ';
+  const time = d.toLocaleTimeString(locale, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: lang !== 'bn'
+  });
+  if (sameDay) return `${t.today}${sep}${time}`;
+  if (yesterday) return `${t.yesterday}${sep}${time}`;
+  return `${d.toLocaleDateString(locale, { month: 'short', day: 'numeric' })}${sep}${time}`;
+}
+
+function fmtNum(value, lang = 'en') {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return String(value ?? '');
+  try {
+    return n.toLocaleString(DATE_LOCALE[lang] ?? DATE_LOCALE.en);
+  } catch {
+    return String(n);
+  }
 }
 
 function toast(message) {
@@ -217,14 +278,14 @@ function renderEntry() {
  * Advocate
  * ------------------------------------------------------------------ */
 
-function topbar(title, subtitle, { back = false, signOut = true } = {}) {
+function topbar(title, subtitle, { back = false, signOut = true, exitLabel = 'Exit', exitAria = 'Sign out' } = {}) {
   return `
     <div class="topbar">
       ${back ? `<button class="icon-btn" data-action="back" aria-label="Back">${ICON.back}</button>` : `<span class="brand">${ICON.leaf}<span>${esc(title)}</span></span>`}
       ${back ? `<span style="font-weight:700">${esc(title)}</span>` : ''}
       <span class="spacer"></span>
       ${subtitle ? `<span class="who">${esc(subtitle)}</span>` : ''}
-      ${signOut ? `<button class="icon-btn" data-action="signout" aria-label="Sign out">Exit</button>` : ''}
+      ${signOut ? `<button class="icon-btn" data-action="signout" aria-label="${esc(exitAria)}">${esc(exitLabel)}</button>` : ''}
     </div>`;
 }
 
@@ -488,15 +549,41 @@ function renderThreadItem(m) {
  * Parent feed
  * ------------------------------------------------------------------ */
 
+function renderLangSwitch(t, uiLang) {
+  return `
+    <div class="lang-bar lang-switch-row">
+      <span class="eyebrow">${esc(t.languageSwitch)}</span>
+      <div class="lang-switch" role="group" aria-label="${esc(t.languageSwitch)}">
+        ${PARENT_LOCALES.map((code) => `
+          <button type="button" class="lang-choice ${code === uiLang ? 'selected' : ''}" data-action="set-ui-lang" data-lang="${code}" lang="${code}" dir="${PARENT_LOCALE_DIR[code]}" aria-pressed="${code === uiLang ? 'true' : 'false'}">${esc(t[LANG_LABEL_ID[code]])}</button>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+function languageName(t, code, fallback) {
+  const id = LANG_LABEL_ID[code];
+  return id ? t[id] : fallback;
+}
+
+function replyStatus(t, status) {
+  if (status === 'ready') return t.replyReady;
+  if (status === 'failed' || status === 'no_speech') return t.replyFailed;
+  return t.replySending;
+}
+
 function renderParent() {
   const feed = state.parentFeed;
   const session = state.session;
-  const t = feed ? ui(feed.family.home_language) : UI_TEXT.en;
+  const uiLang = parentUiLang();
+  const t = stringsFor(uiLang);
+  const dir = t.dir;
+  const bar = { signOut: true, exitLabel: t.exit, exitAria: t.exitAria };
 
   if (!feed) {
     return `
-      <div class="screen">
-        ${topbar('SproutComm', session?.family?.child_name ?? '', { signOut: true })}
+      <div class="screen" dir="${dir}" lang="${uiLang}">
+        ${topbar(t.appName, session?.family?.child_name ?? '', bar)}
         <div class="content">
           ${state.parentError ? errorNotice(state.parentError) : '<div class="skeleton"></div><div class="skeleton"></div>'}
         </div>
@@ -507,36 +594,40 @@ function renderParent() {
 
   if (!m) {
     return `
-      <div class="screen">
-        ${topbar('SproutComm', feed.family.child_name, {})}
+      <div class="screen" dir="${dir}" lang="${uiLang}">
+        ${topbar(t.appName, feed.family.child_name, bar)}
         <div class="content">
+          ${renderLangSwitch(t, uiLang)}
           <div class="card done-card">
             <div class="check">${ICON.leaf}</div>
             <h2>${esc(feed.family.family_name)}</h2>
-            <p class="muted">No message tonight yet. Your advocate will send one.</p>
+            <p class="muted">${esc(t.noMessage)}</p>
           </div>
         </div>
       </div>`;
   }
 
   const lang = feed.family.language;
+  const contentDir = m.dir ?? 'auto';
+  const contentLang = m.lang ?? lang.code;
   const textMode = m.mode === 'text';
   const localPending = state.localCompleted === m.id;
   const done = m.status === 'completed' || localPending;
 
   return `
-  <div class="screen">
-    ${topbar('SproutComm', feed.family.child_name, { signOut: true })}
+  <div class="screen" dir="${dir}" lang="${uiLang}">
+    ${topbar(t.appName, feed.family.child_name, bar)}
     <div class="content feed">
+      ${renderLangSwitch(t, uiLang)}
       <div class="lang-bar">
-        <span class="tag ${lang.dir === 'rtl' ? 'rtl' : ''}">${esc(lang.nativeName)}</span>
-        <span class="small muted">${esc(fmtDate(m.created_at))}</span>
+        <span class="tag ${lang.dir === 'rtl' ? 'rtl' : ''}" lang="${esc(lang.code)}">${esc(languageName(t, lang.code, lang.nativeName))}</span>
+        <span class="small muted">${esc(fmtDate(m.created_at, uiLang))}</span>
       </div>
 
       ${state.offline ? `<div class="notice warn">${esc(t.offlineNote)}</div>` : ''}
       ${state.pendingCount > 0 ? `
         <div class="notice">
-          <span class="status-dot wait"></span>${state.pendingCount} ${esc(t.waiting)}
+          <span class="status-dot wait"></span>${esc(fmtNum(state.pendingCount, uiLang))} ${esc(t.waiting)}
         </div>` : ''}
 
       ${done ? `
@@ -546,32 +637,32 @@ function renderParent() {
           <p class="muted small">${esc(localPending ? t.savedOffline : t.completedNote)}</p>
         </div>` : ''}
 
-      <section class="card parent-msg" dir="${esc(m.dir)}">
+      <section class="card parent-msg" dir="${dir}">
         <div class="msg-meta">
           <span>${esc(feed.family.family_name)}</span>
           ${m.completed_at ? `<span class="tag">${esc(t.doneTag)}</span>` : ''}
         </div>
         ${textMode
-          ? `<p class="msg-body">${esc(m.body ?? '')}</p>`
-          : `<p class="msg-body" style="font-size:17px;color:#5d6d63">${esc('Voice message from your advocate')}</p>`}
+          ? `<p class="msg-body" dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.body ?? '')}</p>`
+          : `<p class="msg-body" style="font-size:17px;color:#5d6d63">${esc(t.voiceMessage)}</p>`}
         <button class="listen-btn ${state.speaking ? 'playing' : ''}" data-action="listen" type="button">
           ${state.speaking ? ICON.stop : ICON.speaker}<span>${esc(t.listen)}</span>
         </button>
       </section>
 
-      <section class="card activity-card" dir="${esc(m.dir)}">
+      <section class="card activity-card" dir="${dir}">
         <div class="row" style="justify-content:space-between;margin-bottom:8px">
           <span class="eyebrow">${esc(t.activity)}</span>
-          <span class="small muted" style="display:flex;align-items:center;gap:5px">${ICON.clock}${esc(m.activity.minutes)} ${esc(t.minutes)}</span>
+          <span class="small muted" style="display:flex;align-items:center;gap:5px">${ICON.clock}${esc(fmtNum(m.activity.minutes, uiLang))} ${esc(t.minutes)}</span>
         </div>
-        <h2>${esc(m.activity.title)}</h2>
-        <ol class="steps">
+        <h2 dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.activity.title)}</h2>
+        <ol class="steps" dir="${esc(contentDir)}" lang="${esc(contentLang)}">
           ${m.activity.steps.map((s) => `<li class="step"><span>${esc(s)}</span></li>`).join('')}
         </ol>
         ${m.activity.prompt ? `
           <div class="prompt">
             <div class="eyebrow" style="margin-bottom:4px">${esc(t.prompt)}</div>
-            ${esc(m.activity.prompt)}
+            <div dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.activity.prompt)}</div>
           </div>` : ''}
       </section>
 
@@ -579,15 +670,15 @@ function renderParent() {
         <div class="card reply-card" style="padding:14px">
           <div class="row" style="justify-content:space-between;margin-bottom:8px">
             <span class="eyebrow">${esc(t.voiceNote)}</span>
-            <span class="small muted">${esc(fmtDate(m.replies[0].created_at))}</span>
+            <span class="small muted">${esc(fmtDate(m.replies[0].created_at, uiLang))}</span>
           </div>
           ${m.replies[0].audio_url
             ? `<audio controls preload="metadata" src="${esc(m.replies[0].audio_url)}" style="width:100%"></audio>`
-            : '<p class="small muted">Still uploading…</p>'}
-          <p class="small muted" style="margin-top:8px">${m.replies[0].status === 'ready' ? 'Your advocate has your voice note.' : m.replies[0].status === 'transcribing' ? 'Sending to your advocate…' : (m.replies[0].status === 'failed' || m.replies[0].status === 'no_speech') ? 'We could not hear that recording. Try again.' : 'Sending to your advocate…'}</p>
+            : `<p class="small muted">${esc(t.stillUploading)}</p>`}
+          <p class="small muted" style="margin-top:8px">${esc(replyStatus(t, m.replies[0].status))}</p>
         </div>` : ''}
 
-      ${!textMode ? `<div class="notice warn">This family's home language is delivered by voice only. Text cards are not shown.</div>` : ''}
+      ${!textMode ? `<div class="notice warn">${esc(t.voiceOnlyNotice)}</div>` : ''}
     </div>
 
     <div class="parent-actions">
@@ -612,9 +703,10 @@ const SPEECH_LOCALE = { ar: 'ar-SA', bn: 'bn-BD', en: 'en-US', syl: 'bn-BD' };
 function speak() {
   const m = state.parentFeed?.message;
   if (!m) return;
+  const t = stringsFor(parentUiLang());
 
   if (!('speechSynthesis' in window)) {
-    toast('Audio is not available on this phone');
+    toast(t.toastNoAudio);
     return;
   }
 
@@ -627,7 +719,7 @@ function speak() {
 
   const text = m.body ?? '';
   if (!text) {
-    toast('Voice message audio is not connected yet');
+    toast(t.toastNoVoiceAudio);
     return;
   }
 
@@ -647,7 +739,7 @@ function speak() {
   utter.onerror = () => {
     state.speaking = false;
     render();
-    toast('Audio is not available on this phone');
+    toast(t.toastNoAudio);
   };
 
   state.speaking = true;
@@ -765,7 +857,7 @@ async function postVoiceNote(blob, messageId, clientId, filename = 'note.webm') 
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(data.error || 'Could not send that recording');
+    const err = new Error(data.error || stringsFor(parentUiLang()).sendRecordingFailed);
     err.status = res.status;
     throw err;
   }
@@ -777,6 +869,7 @@ let flushing = false;
 async function flushOutbox({ quiet = false } = {}) {
   if (flushing || !state.session || state.session.role !== 'parent') return;
 
+  const t = stringsFor(parentUiLang());
   flushing = true;
   let sent = 0;
   try {
@@ -795,7 +888,7 @@ async function flushOutbox({ quiet = false } = {}) {
         if (isNetworkError(err) || err.status === 401) break;
         // The server will never accept this item; drop it and say so.
         await outboxDelete(item.id);
-        toast(err.message || 'One saved item could not be sent');
+        toast(err.message || t.toastSavedItemFailed);
       }
     }
   } finally {
@@ -804,7 +897,13 @@ async function flushOutbox({ quiet = false } = {}) {
 
   await refreshOutboxCount();
   if (sent > 0) {
-    if (!quiet) toast(sent === 1 ? 'Saved item sent' : `${sent} saved items sent`);
+    if (!quiet) {
+      toast(
+        sent === 1
+          ? t.toastSavedItemSent
+          : t.toastSavedItemsSent.replace('{n}', fmtNum(sent, t.lang))
+      );
+    }
     if (state.screen === 'parent') {
       state.localCompleted = null;
       await loadParentFeed();
@@ -850,7 +949,7 @@ function closeRecorder({ refresh = false } = {}) {
 }
 
 async function startRecording() {
-  const t = ui(state.parentFeed?.family.home_language);
+  const t = stringsFor(parentUiLang());
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
     state.record.error = t.micOff;
     render();
@@ -907,7 +1006,7 @@ function stopRecording() {
 async function sendRecording() {
   const blob = state.record.blob;
   if (!blob) return;
-  const t = ui(state.parentFeed?.family.home_language);
+  const t = stringsFor(parentUiLang());
   const clientId = crypto.randomUUID();
   const messageId = state.parentFeed.message.id;
 
@@ -946,7 +1045,7 @@ function renderRecorder(t) {
   const r = state.record;
   return `
     <div class="sheet-backdrop" data-action="close-record"></div>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(t.voiceNote)}" dir="${t.rtl ? 'rtl' : 'ltr'}">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(t.voiceNote)}" dir="${t.rtl ? 'rtl' : 'ltr'}" lang="${t.lang}">
       <div class="grab"></div>
       <div class="eyebrow">${esc(t.voiceNote)}</div>
 
@@ -1089,7 +1188,7 @@ function renderComplete(t) {
 
   return `
     <div class="sheet-backdrop" data-action="close-complete"></div>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(t.weDidIt)}" dir="${t.rtl ? 'rtl' : 'ltr'}">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(t.weDidIt)}" dir="${t.rtl ? 'rtl' : 'ltr'}" lang="${t.lang}">
       <div class="grab"></div>
       ${c.done ? `
         <div class="done-card">
@@ -1106,7 +1205,7 @@ function renderComplete(t) {
           <div class="chip-row">
             ${['parent', 'parent_child', 'whole_family', 'other_adult'].map((code) => `
               <button class="chip ${c.participants === code ? 'selected' : ''}" data-action="set-participants" data-value="${code}">
-                ${esc(t.joined[code])}
+                ${esc(t[JOINED_LABEL_ID[code]])}
               </button>`).join('')}
           </div>
         </div>
@@ -1116,7 +1215,7 @@ function renderComplete(t) {
           <div class="chip-row">
             ${minutes.map((m) => `
               <button class="chip ${c.minutes === m ? 'selected' : ''}" data-action="set-minutes" data-value="${m}">
-                ${m} ${esc(t.minutes)}
+                ${esc(fmtNum(m, t.lang))} ${esc(t.minutes)}
               </button>`).join('')}
           </div>
         </div>
@@ -1292,6 +1391,13 @@ function render() {
 
   root.innerHTML = html;
 
+  // The whole page follows the parent's reading language, including the
+  // browser's own scrollbar and text direction. Advocate and entry views stay
+  // English/LTR.
+  const pageLang = state.screen === 'parent' ? parentUiLang() : 'en';
+  document.documentElement.lang = pageLang;
+  document.documentElement.dir = state.screen === 'parent' ? (PARENT_LOCALE_DIR[pageLang] ?? 'ltr') : 'ltr';
+
   if (hadBodyFocus) {
     const body = document.getElementById('c-body');
     if (body) {
@@ -1325,6 +1431,11 @@ document.addEventListener('click', async (event) => {
 
   if (action === 'signout') {
     signOut();
+    return;
+  }
+
+  if (action === 'set-ui-lang') {
+    setParentUiLang(el.dataset.lang);
     return;
   }
 

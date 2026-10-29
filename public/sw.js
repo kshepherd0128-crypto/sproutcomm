@@ -2,8 +2,8 @@
 // API responses are never cached here: the app keeps its own feed cache and
 // outbox so it can show "saved, waiting to send" honestly.
 
-const CACHE = 'sproutcomm-shell-v1';
-const SHELL = ['/', '/index.html', '/app.js', '/styles.css'];
+const CACHE = 'sproutcomm-shell-v2';
+const SHELL = ['/', '/index.html', '/app.js', '/parent-strings.js', '/styles.css'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

@@ -8,8 +8,10 @@
     "start": "node server/index.js",
     "start:https": "HTTPS=1 node server/index.js",
     "seed": "node server/seed.js",
+    "build:parent-strings": "node tools/build-parent-strings.mjs",
     "verify": "node tools/verify-stage1.mjs && node tools/verify-security.mjs && node tools/verify-contract.mjs && node tools/verify-stage2.mjs",
-    "verify:voice-language": "node tools/verify-voicereply-language.mjs"
+    "verify:voice-language": "node tools/verify-voicereply-language.mjs",
+    "verify:parent-language": "node tools/verify-parent-language.mjs"
   },
   "engines": {
     "node": ">=22.5"

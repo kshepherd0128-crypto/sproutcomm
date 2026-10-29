@@ -118,7 +118,7 @@ a {
 .topbar .who {
   font-size: 13px;
   color: #cfe3c2;
-  text-align: right;
+  text-align: end;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -517,11 +517,56 @@ select {
   padding-bottom: 152px;
 }
 
-.feed .lang-bar {
+.lang-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.lang-switch-row {
+  flex-wrap: wrap;
+}
+
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #eef3e7;
+  direction: ltr;
+  flex: none;
+}
+
+.lang-choice {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green-dark);
+  background: transparent;
+  white-space: nowrap;
+}
+
+.lang-choice.selected {
+  background: var(--green);
+  color: #fff;
+}
+
+.lang-choice:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+
+.lang-choice[lang="ar"] {
+  font-family: "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+}
+
+.lang-choice[lang="bn"] {
+  font-family: "Noto Sans Bengali", ui-sans-serif, system-ui, sans-serif;
 }
 
 .parent-msg .msg-body {
@@ -531,7 +576,7 @@ select {
   white-space: pre-wrap;
 }
 
-.parent-msg[dir="rtl"] .msg-body {
+.parent-msg .msg-body[dir="rtl"] {
   text-align: right;
   font-family: "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
   font-size: 22px;
@@ -576,8 +621,8 @@ select {
   letter-spacing: -0.01em;
 }
 
-.activity-card[dir="rtl"] h2,
-.activity-card[dir="rtl"] .step {
+.activity-card h2[dir="rtl"],
+.activity-card .steps[dir="rtl"] .step {
   text-align: right;
   font-family: "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
 }
@@ -622,6 +667,11 @@ select {
   background: #fbf6ea;
   border: 1px solid #efe4cd;
   font-size: 16px;
+}
+
+.activity-card .prompt [dir="rtl"] {
+  text-align: right;
+  font-family: "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
 }
 
 .parent-actions {
