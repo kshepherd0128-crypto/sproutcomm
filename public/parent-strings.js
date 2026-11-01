@@ -57,7 +57,16 @@ export const PARENT_STRINGS = {
   "toastSavedItemFailed": { en: "One saved item could not be sent", ar: "تعذّر إرسال عنصر واحد محفوظ", bn: "সংরক্ষিত একটি আইটেম পাঠানো যায়নি" },
   "toastSavedItemSent": { en: "Saved item sent", ar: "تم إرسال العنصر المحفوظ", bn: "সংরক্ষিত আইটেম পাঠানো হয়েছে" },
   "toastSavedItemsSent": { en: "{n} saved items sent", ar: "تم إرسال {n} من العناصر المحفوظة", bn: "{n}টি সংরক্ষিত আইটেম পাঠানো হয়েছে" },
-  "sendRecordingFailed": { en: "Could not send that recording", ar: "تعذّر إرسال ذلك التسجيل", bn: "সেই রেকর্ডিং পাঠানো যায়নি" }
+  "sendRecordingFailed": { en: "Could not send that recording", ar: "تعذّر إرسال ذلك التسجيل", bn: "সেই রেকর্ডিং পাঠানো যায়নি" },
+  "growingSprout": { en: "Growing sprout", ar: "النبتة النامية", bn: "বেড়ে ওঠা চারা" },
+  "sproutFinished": { en: "{n} finished", ar: "{n} من الأنشطة المنجزة", bn: "শেষ হয়েছে {n}টি কাজ" },
+  "sproutEmpty": { en: "Finish an activity to grow your first leaf", ar: "أنهِ نشاطًا لتنمو ورقتك الأولى", bn: "প্রথম পাতা গজাতে একটি কাজ শেষ করুন" },
+  "sectionReplies": { en: "Family replies", ar: "ردود العائلات", bn: "পরিবারের উত্তর" },
+  "sectionSend": { en: "Send an engagement", ar: "إرسال مشاركة", bn: "সম্পৃক্ততা পাঠান" },
+  "sectionFamilies": { en: "Families", ar: "العائلات", bn: "পরিবারগুলো" },
+  "statusReplied": { en: "Replied", ar: "تم الرد", bn: "উত্তর দিয়েছে" },
+  "statusWaiting": { en: "Waiting", ar: "في الانتظار", bn: "অপেক্ষমাণ" },
+  "statusDone": { en: "Done", ar: "تم", bn: "সম্পন্ন" }
 };
 
 export const PARENT_LOCALES = ['en', 'ar', 'bn'];

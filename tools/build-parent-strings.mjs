@@ -74,7 +74,16 @@ const SOURCE = {
   toastSavedItemFailed: 'One saved item could not be sent',
   toastSavedItemSent: 'Saved item sent',
   toastSavedItemsSent: '{n} saved items sent',
-  sendRecordingFailed: 'Could not send that recording'
+  sendRecordingFailed: 'Could not send that recording',
+  growingSprout: 'Growing sprout',
+  sproutFinished: '{n} finished',
+  sproutEmpty: 'Finish an activity to grow your first leaf',
+  sectionReplies: 'Family replies',
+  sectionSend: 'Send an engagement',
+  sectionFamilies: 'Families',
+  statusReplied: 'Replied',
+  statusWaiting: 'Waiting',
+  statusDone: 'Done'
 };
 
 // The product name is a proper noun and is intentionally identical everywhere.

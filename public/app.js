@@ -72,6 +72,18 @@ const ICON = {
   clock: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`
 };
 
+/* Polish pack: figures beside the completion sheet's "who joined" labels
+ * and a clock beside the minutes. The icons aid recognition for
+ * low-literacy parents — the text label always stays, the icon never
+ * replaces it. currentColor keeps them in step with the pill: muted ink
+ * at rest, white on the selected (green) pill. */
+const JOINED_ICON = {
+  parent: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/></svg>`,
+  parent_child: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7.5" r="3.8"/><path d="M2.5 20.5V19a6.5 6.5 0 0 1 13 0v1.5"/><circle cx="17.6" cy="12.5" r="2.5"/><path d="M14.6 20.5v-1a3 3 0 0 1 6 0v1"/></svg>`,
+  whole_family: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="7.5" r="3"/><path d="M1.5 20.5v-1.3a4.8 4.8 0 0 1 9.6 0v1.3"/><circle cx="18" cy="7.5" r="3"/><path d="M12.9 20.5v-1.3a4.8 4.8 0 0 1 9.6 0v1.3"/><circle cx="12" cy="13.5" r="2.3"/><path d="M8.9 20.5v-.8a3.1 3.1 0 0 1 6.2 0v.8"/></svg>`,
+  other_adult: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="7.5" r="3.8"/><path d="M3.7 20.5V19a6.3 6.3 0 0 1 12.6 0v1.5"/><path d="M18.6 13.8l.73 2.09 2.22.05-1.76 1.35.66 2.12-1.85-1.26-1.85 1.26.66-2.12-1.76-1.35 2.22-.05Z"/></svg>`
+};
+
 /* ------------------------------------------------------------------ *
  * State + helpers
  * ------------------------------------------------------------------ */
@@ -105,7 +117,7 @@ const state = {
   record: { open: false, phase: 'idle', seconds: 0, error: null, blob: null, previewUrl: null },
   retryingNote: null,
   familyDetailJson: '',
-  complete: { open: false, participants: 'parent_child', minutes: 10, busy: false, error: null, done: false, queued: false, clientId: null },
+  complete: { open: false, participants: null, minutes: null, busy: false, error: null, done: false, queued: false, clientId: null },
   offline: false,
   pendingCount: 0,
   localCompleted: null
@@ -160,6 +172,22 @@ async function api(path, { method = 'GET', body } = {}) {
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function truncateMiddle(text, max = 44) {
+  const s = String(text ?? '');
+  if (s.length <= max) return s;
+  const keep = max - 1;
+  const head = Math.ceil(keep * 0.62);
+  return `${s.slice(0, head)}…${s.slice(-(keep - head))}`;
+}
+
+/* T3: the compose field grows with the message being written. */
+function growCompose(el) {
+  const ta = el ?? document.getElementById('c-body');
+  if (!ta) return;
+  ta.style.height = 'auto';
+  ta.style.height = `${Math.min(ta.scrollHeight, 320)}px`;
 }
 
 const DATE_LOCALE = { en: 'en-US', ar: 'ar', bn: 'bn-BD' };
@@ -304,12 +332,12 @@ function renderAdvocate() {
   const languageBlocked = translationOffline && family && family.home_language !== 'en';
 
   return `
-  <div class="screen">
+  <div class="screen advocate-layout">
     ${topbar('SproutComm', 'Marisol Vega')}
-    <div class="content">
+    <div class="content advocate-sections">
       <div class="family-head">
-        <div class="eyebrow">Tonight</div>
-        <h2>Send an engagement</h2>
+        <div class="eyebrow">Advocate home</div>
+        <h2>Tonight</h2>
       </div>
 
       ${state.aiConfigured === false ? `
@@ -322,6 +350,7 @@ function renderAdvocate() {
 
       ${state.sendResult ? renderSendResult(state.sendResult) : ''}
 
+      <div class="section-title">Send an engagement</div>
       <form class="card stack compose" data-form="compose">
         <div class="field">
           <label for="c-family">Family</label>
@@ -346,7 +375,7 @@ function renderAdvocate() {
 
         <div class="field">
           <label for="c-body">Message to the family (English)</label>
-          <textarea id="c-body" name="body_en" required placeholder="Write the message you would say to this family…">${esc(compose.body)}</textarea>
+          <textarea id="c-body" name="body_en" required rows="3" placeholder="Write the message you would say to this family…">${esc(compose.body)}</textarea>
         </div>
 
         ${family ? `
@@ -370,7 +399,7 @@ function renderAdvocate() {
       </form>
 
       <div class="section-title">Families</div>
-      <div class="stack">
+      <div class="families-grid">
         ${!families ? '<div class="skeleton"></div><div class="skeleton"></div>' : families.map(renderFamilyCard).join('')}
       </div>
     </div>
@@ -378,25 +407,31 @@ function renderAdvocate() {
 }
 
 function renderFamilyCard(f) {
+  // T2: one status pill per family — Done wins, then Replied, else Waiting.
   const status = f.last_status === 'completed'
-    ? '<span class="tag">Activity done</span>'
-    : f.last_message_at
-      ? '<span class="tag plain">Awaiting reply</span>'
-      : '<span class="tag amber">No message yet</span>';
+    ? '<span class="tag status-pill">Done</span>'
+    : f.reply_count > 0
+      ? '<span class="tag status-pill"><span class="status-dot"></span>Replied</span>'
+      : '<span class="tag amber status-pill">Waiting</span>';
+  const languageLabel = f.home_language === 'en' ? 'English' : f.language.nativeName;
 
   return `
     <button class="family-card" data-action="open-family" data-family="${esc(f.id)}">
       <div class="fc-top">
         <span class="avatar">${esc(f.child_name.slice(0, 1))}</span>
-        <span style="flex:1">
+        <span style="flex:1;min-width:0">
           <span class="fc-name">${esc(f.family_name)}</span>
-          <span class="fc-sub" style="display:block">${esc(f.child_name)}, age ${esc(f.child_age)} · ${esc(f.home_language === 'en' ? 'English' : f.language.nativeName)}</span>
+          <span class="fc-sub" style="display:block">${esc(f.child_name)}, age ${esc(f.child_age)} · ${esc(languageLabel)}</span>
         </span>
         ${status}
       </div>
+      <div class="fc-activity small muted">
+        <span class="fc-activity-title">${esc(f.last_activity || 'No engagement yet')}</span>
+        <span class="fc-activity-time">${f.last_message_at ? esc(fmtDate(f.last_message_at)) : ''}</span>
+      </div>
       <div class="row small muted" style="justify-content:space-between">
-        <span>${f.last_message_at ? esc(fmtDate(f.last_message_at)) : 'No engagement yet'}</span>
-        <span>${f.reply_count ? `${f.reply_count} voice ${f.reply_count === 1 ? 'reply' : 'replies'}` : ''}${f.reply_count && f.note_count ? ' · ' : ''}${f.note_count ? `${f.note_count} note${f.note_count === 1 ? '' : 's'}` : ''}</span>
+        <span>${f.reply_count ? `${f.reply_count} voice ${f.reply_count === 1 ? 'reply' : 'replies'}` : 'No voice replies'}</span>
+        <span>${f.note_count ? `${f.note_count} note${f.note_count === 1 ? '' : 's'}` : ''}</span>
       </div>
     </button>`;
 }
@@ -491,11 +526,12 @@ function renderFamilyDetail() {
             <span class="tag plain">private</span>
           </div>
           <div class="small muted">This is the parent's front door. It opens only this family's page.</div>
-          <code style="font-size:12px;word-break:break-all;background:#fbf6ea;padding:8px 10px;border-radius:10px">${esc(location.origin + f.access_path)}</code>
-          <div class="row" style="gap:8px">
-            <button class="btn btn-ghost" style="flex:1;min-height:48px" data-action="copy-link" data-path="${esc(f.access_path)}">Copy link</button>
-            <button class="btn btn-secondary" style="flex:1;min-height:48px" data-action="open-parent" data-path="${esc(f.access_path)}">Open family view</button>
+          <div class="link-box" title="${esc(location.origin + f.access_path)}">
+            <code class="sr-only">${esc(location.origin + f.access_path)}</code>
+            <span class="link-box-text" aria-hidden="true">${esc(truncateMiddle(location.origin + f.access_path, 44))}</span>
+            <button class="btn btn-ghost link-copy" data-action="copy-link" data-path="${esc(f.access_path)}">Copy</button>
           </div>
+          <button class="btn btn-secondary btn-nowrap" style="min-height:48px" data-action="open-parent" data-path="${esc(f.access_path)}">Open family view</button>
         </div>` : ''}
 
       <div class="section-title">Engagements</div>
@@ -572,6 +608,86 @@ function replyStatus(t, status) {
   return t.replySending;
 }
 
+/* ------------------------------------------------------------------ *
+ * F1 — The Growing Sprout. One leaf per completed engagement, visual
+ * cap 12 leaves, then a flower. Pure SVG + CSS; no images, no network.
+ * ------------------------------------------------------------------ */
+
+/* One leaf shape: a pointed oval from its base on the stem to an
+ * upturned tip, with a faint centre vein. Coordinates are rounded so the
+ * generated markup stays compact. */
+function sproutLeaf(x, y, side, len, wid, fill, cls) {
+  const tipX = (x + side * len).toFixed(1);
+  const tipY = (y - len * 0.42).toFixed(1);
+  const upX = (x + side * len * 0.45).toFixed(1);
+  const upY = (y - wid - len * 0.16).toFixed(1);
+  const lowY = (y + wid * 0.55).toFixed(1);
+  const veinY = (y - len * 0.2).toFixed(1);
+  return `<path class="${cls}" d="M${x} ${y} Q${upX} ${upY} ${tipX} ${tipY} Q${upX} ${lowY} ${x} ${y} Z" fill="${fill}" stroke="#0f4429" stroke-width="0.7" stroke-opacity="0.35"/><path d="M${x} ${y} Q${upX} ${veinY} ${tipX} ${tipY}" stroke="#0f4429" stroke-width="0.9" opacity="0.22" fill="none"/>`;
+}
+
+function sproutSvg(count, { animateLast = false } = {}) {
+  const capped = Math.max(0, Math.min(Number(count) || 0, 12));
+  const parts = [];
+
+  // Soil: a soft mound the plant grows out of, with a few soil flecks.
+  parts.push('<ellipse cx="30" cy="62.5" rx="21" ry="5" fill="#dcebc8"/>');
+  parts.push('<circle cx="19" cy="60.5" r="1.1" fill="#0f4429" opacity="0.16"/><circle cx="41" cy="61" r="1.1" fill="#0f4429" opacity="0.16"/><circle cx="30" cy="61.8" r="0.9" fill="#0f4429" opacity="0.12"/>');
+
+  if (capped === 0) {
+    // Just planted: a short stem and the two seed leaves.
+    parts.push('<path d="M30 60 C29.6 58 30.4 56.4 30 54.5" stroke="#16643a" stroke-width="3" stroke-linecap="round" fill="none"/>');
+    parts.push(sproutLeaf(30, 56.5, -1, 7.5, 3, '#7fb069', 'sprout-leaf'));
+    parts.push(sproutLeaf(30, 56.5, 1, 7.5, 3, '#16643a', 'sprout-leaf'));
+  } else {
+    // A gently curved stem the leaves climb.
+    parts.push('<path d="M30 60 C28.4 47 31.6 35 30 21" stroke="#16643a" stroke-width="3.4" stroke-linecap="round" fill="none"/>');
+    for (let i = 0; i < capped; i++) {
+      const y = 52 - i * 2.75;
+      const side = i % 2 === 0 ? -1 : 1;
+      const len = 14.5 - i * 0.4;
+      const wid = 5.2 - i * 0.15;
+      const grow = animateLast && i === capped - 1 ? ' grow' : '';
+      parts.push(sproutLeaf(30, y, side, len, wid, i % 2 ? '#7fb069' : '#16643a', `sprout-leaf${grow}`));
+    }
+    if (capped >= 12) {
+      // Full growth: a five-petal flower crowns the stem.
+      const petals = [];
+      for (let k = 0; k < 5; k++) {
+        const a = ((k * 72 - 90) * Math.PI) / 180;
+        const px = (30 + 4.4 * Math.cos(a)).toFixed(1);
+        const py = (13 + 4.4 * Math.sin(a)).toFixed(1);
+        petals.push(`<ellipse cx="${px}" cy="${py}" rx="3.4" ry="2.3" transform="rotate(${k * 72} ${px} ${py})" fill="#e9b44c"/>`);
+      }
+      parts.push(petals.join(''));
+      parts.push('<circle cx="30" cy="13" r="2.4" fill="#a85b12"/>');
+    } else {
+      // A young upright leaf at the tip — the next leaf on its way.
+      parts.push('<path d="M30 12.5 C33.2 16 33.2 19.4 30 22.5 C26.8 19.4 26.8 16 30 12.5 Z" fill="#7fb069" stroke="#0f4429" stroke-width="0.7" stroke-opacity="0.35"/>');
+    }
+  }
+
+  return `
+    <svg class="sprout-svg" viewBox="0 0 60 64" width="54" height="58" aria-hidden="true">
+      ${parts.join('')}
+    </svg>`;
+}
+
+function renderSprout(t, count, uiLang) {
+  const n = Number(count) || 0;
+  const caption = n > 0
+    ? t.sproutFinished.replace('{n}', fmtNum(n, uiLang))
+    : t.sproutEmpty;
+  return `
+    <div class="card sprout-card">
+      ${sproutSvg(n)}
+      <div class="sprout-meta">
+        <div class="eyebrow">${esc(t.growingSprout)}</div>
+        <p class="small muted">${esc(caption)}</p>
+      </div>
+    </div>`;
+}
+
 function renderParent() {
   const feed = state.parentFeed;
   const session = state.session;
@@ -582,7 +698,7 @@ function renderParent() {
 
   if (!feed) {
     return `
-      <div class="screen" dir="${dir}" lang="${uiLang}">
+      <div class="screen locale-${uiLang}" dir="${dir}" lang="${uiLang}">
         ${topbar(t.appName, session?.family?.child_name ?? '', bar)}
         <div class="content">
           ${state.parentError ? errorNotice(state.parentError) : '<div class="skeleton"></div><div class="skeleton"></div>'}
@@ -594,10 +710,11 @@ function renderParent() {
 
   if (!m) {
     return `
-      <div class="screen" dir="${dir}" lang="${uiLang}">
+      <div class="screen locale-${uiLang}" dir="${dir}" lang="${uiLang}">
         ${topbar(t.appName, feed.family.child_name, bar)}
         <div class="content">
           ${renderLangSwitch(t, uiLang)}
+          ${renderSprout(t, feed.completed_count, uiLang)}
           <div class="card done-card">
             <div class="check">${ICON.leaf}</div>
             <h2>${esc(feed.family.family_name)}</h2>
@@ -615,7 +732,7 @@ function renderParent() {
   const done = m.status === 'completed' || localPending;
 
   return `
-  <div class="screen" dir="${dir}" lang="${uiLang}">
+  <div class="screen locale-${uiLang}" dir="${dir}" lang="${uiLang}">
     ${topbar(t.appName, feed.family.child_name, bar)}
     <div class="content feed">
       ${renderLangSwitch(t, uiLang)}
@@ -624,38 +741,35 @@ function renderParent() {
         <span class="small muted">${esc(fmtDate(m.created_at, uiLang))}</span>
       </div>
 
+      ${renderSprout(t, feed.completed_count, uiLang)}
+
       ${state.offline ? `<div class="notice warn">${esc(t.offlineNote)}</div>` : ''}
       ${state.pendingCount > 0 ? `
         <div class="notice">
           <span class="status-dot wait"></span>${esc(fmtNum(state.pendingCount, uiLang))} ${esc(t.waiting)}
         </div>` : ''}
 
-      ${done ? `
-        <div class="card done-card">
-          <div class="check">${ICON.check}</div>
-          <h2>${esc(t.weDidIt)}</h2>
-          <p class="muted small">${esc(localPending ? t.savedOffline : t.completedNote)}</p>
-        </div>` : ''}
-
-      <section class="card parent-msg" dir="${dir}">
+      <section class="card parent-msg activity-card tonight-card ${done ? 'done-card is-done' : ''}" dir="${dir}">
         <div class="msg-meta">
           <span>${esc(feed.family.family_name)}</span>
-          ${m.completed_at ? `<span class="tag">${esc(t.doneTag)}</span>` : ''}
+          ${done || m.completed_at ? `<span class="tag">${esc(t.doneTag)}</span>` : ''}
         </div>
-        ${textMode
-          ? `<p class="msg-body" dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.body ?? '')}</p>`
-          : `<p class="msg-body" style="font-size:17px;color:#5d6d63">${esc(t.voiceMessage)}</p>`}
-        <button class="listen-btn ${state.speaking ? 'playing' : ''}" data-action="listen" type="button">
-          ${state.speaking ? ICON.stop : ICON.speaker}<span>${esc(t.listen)}</span>
-        </button>
-      </section>
-
-      <section class="card activity-card" dir="${dir}">
         <div class="row" style="justify-content:space-between;margin-bottom:8px">
           <span class="eyebrow">${esc(t.activity)}</span>
           <span class="small muted" style="display:flex;align-items:center;gap:5px">${ICON.clock}${esc(fmtNum(m.activity.minutes, uiLang))} ${esc(t.minutes)}</span>
         </div>
         <h2 dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.activity.title)}</h2>
+        ${done ? `
+          <div class="done-state">
+            <span class="check check-sm">${ICON.check}</span>
+            <p class="small muted">${esc(localPending ? t.savedOffline : t.completedNote)}</p>
+          </div>` : ''}
+        <button class="listen-btn ${state.speaking ? 'playing' : ''}" data-action="listen" type="button">
+          ${state.speaking ? ICON.stop : ICON.speaker}<span>${esc(t.listen)}</span>
+        </button>
+        ${textMode
+          ? `<p class="msg-body" dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.body ?? '')}</p>`
+          : `<p class="msg-body" style="font-size:17px;color:#5d6d63">${esc(t.voiceMessage)}</p>`}
         <ol class="steps" dir="${esc(contentDir)}" lang="${esc(contentLang)}">
           ${m.activity.steps.map((s) => `<li class="step"><span>${esc(s)}</span></li>`).join('')}
         </ol>
@@ -1102,10 +1216,13 @@ function openComplete() {
   const message = state.parentFeed?.message;
   if (!message || message.status === 'completed') return;
   clearTimeout(closeTimer);
+  // F3: nothing is pre-chosen. The record must be the parent's own taps, so
+  // participants and minutes start empty and Confirm stays disabled until
+  // the parent picks both.
   state.complete = {
     open: true,
-    participants: 'parent_child',
-    minutes: message.activity.minutes || 10,
+    participants: null,
+    minutes: null,
     busy: false,
     error: null,
     done: false,
@@ -1119,8 +1236,8 @@ function closeComplete({ refresh = false } = {}) {
   const wasDone = state.complete.done;
   state.complete = {
     open: false,
-    participants: 'parent_child',
-    minutes: 10,
+    participants: null,
+    minutes: null,
     busy: false,
     error: null,
     done: false,
@@ -1135,6 +1252,8 @@ async function confirmComplete() {
   const c = state.complete;
   const message = state.parentFeed?.message;
   if (!c.open || c.busy || !message) return;
+  // F3: a completion with no explicit parent choice is never sent.
+  if (!c.participants || !c.minutes) return;
 
   c.busy = true;
   c.error = null;
@@ -1184,7 +1303,9 @@ async function confirmComplete() {
 
 function renderComplete(t) {
   const c = state.complete;
-  const minutes = [...new Set([5, 10, 15, 20, c.minutes])].sort((a, b) => a - b);
+  const minutes = [5, 10, 15, 20];
+  const ready = Boolean(c.participants) && Boolean(c.minutes);
+  const sproutCount = (Number(state.parentFeed?.completed_count) || 0) + 1;
 
   return `
     <div class="sheet-backdrop" data-action="close-complete"></div>
@@ -1192,7 +1313,7 @@ function renderComplete(t) {
       <div class="grab"></div>
       ${c.done ? `
         <div class="done-card">
-          <div class="check">${ICON.check}</div>
+          <div class="sprout-celebrate">${sproutSvg(sproutCount, { animateLast: true })}</div>
           <h2>${esc(t.weDidIt)}</h2>
           <p>${esc(c.queued ? t.savedOffline : t.noteSaved)}</p>
         </div>
@@ -1205,7 +1326,7 @@ function renderComplete(t) {
           <div class="chip-row">
             ${['parent', 'parent_child', 'whole_family', 'other_adult'].map((code) => `
               <button class="chip ${c.participants === code ? 'selected' : ''}" data-action="set-participants" data-value="${code}">
-                ${esc(t[JOINED_LABEL_ID[code]])}
+                ${JOINED_ICON[code]}<span>${esc(t[JOINED_LABEL_ID[code]])}</span>
               </button>`).join('')}
           </div>
         </div>
@@ -1215,14 +1336,14 @@ function renderComplete(t) {
           <div class="chip-row">
             ${minutes.map((m) => `
               <button class="chip ${c.minutes === m ? 'selected' : ''}" data-action="set-minutes" data-value="${m}">
-                ${esc(fmtNum(m, t.lang))} ${esc(t.minutes)}
+                ${ICON.clock}<span>${esc(fmtNum(m, t.lang))} ${esc(t.minutes)}</span>
               </button>`).join('')}
           </div>
         </div>
 
         ${errorNotice(c.error)}
 
-        <button class="btn btn-primary btn-block" data-action="confirm-complete" ${c.busy ? 'disabled' : ''}>
+        <button class="btn btn-primary btn-block" data-action="confirm-complete" ${c.busy || !ready ? 'disabled' : ''}>
           ${c.busy ? '<span class="spinner"></span>' : esc(t.confirm)}
         </button>
         <button class="btn btn-ghost btn-block" data-action="close-complete" ${c.busy ? 'disabled' : ''}>${esc(t.cancel)}</button>
@@ -1250,7 +1371,11 @@ async function loadInbox() {
 
 function renderInbox() {
   const notes = state.inbox ?? [];
-  if (!notes.length) return '';
+  if (!notes.length) {
+    return `
+    <div class="section-title">Family replies</div>
+    <div class="empty">No new replies yet. Family voice replies land here first.</div>`;
+  }
 
   return `
     <div class="section-title">Family replies</div>
@@ -1405,6 +1530,7 @@ function render() {
       if (caret !== null) body.setSelectionRange(caret, caret);
     }
   }
+  growCompose();
 }
 
 document.addEventListener('click', async (event) => {
@@ -1606,7 +1732,10 @@ document.addEventListener('submit', async (event) => {
 });
 
 document.addEventListener('input', (event) => {
-  if (event.target.id === 'c-body') state.compose.body = event.target.value;
+  if (event.target.id === 'c-body') {
+    state.compose.body = event.target.value;
+    growCompose(event.target);
+  }
 });
 
 document.addEventListener('change', (event) => {

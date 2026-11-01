@@ -239,6 +239,7 @@ try {
     (await page.eval(`document.querySelector('.sheet').getAttribute('dir')`)) === 'ltr'
   );
 
+  await page.click('[data-action="set-participants"][data-value="parent_child"]');
   await page.click('[data-action="set-minutes"][data-value="15"]');
   await page.click('[data-action="confirm-complete"]');
   await page.waitFor(

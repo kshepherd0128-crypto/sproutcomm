@@ -252,7 +252,7 @@ function resolveParticipants(family, participants) {
 }
 
 const displayTime = (iso) =>
-  new Date(iso).toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
+  new Date(iso).toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Detroit' });
 
 /**
  * The Wonder payload is assembled only from rows already on disk plus the
@@ -482,6 +482,12 @@ export function getFeed(familyId) {
   if (!family) return null;
 
   const shaped = familyShape(family);
+  // Read-only progress count for the parent's Growing Sprout (F1): how many
+  // engagements this family has completed. No record logic changes.
+  const completedCount = one(
+    'SELECT COUNT(*) AS n FROM completion_events WHERE family_id = ?',
+    family.id
+  ).n;
   const message = one(
     `SELECT * FROM messages
       WHERE family_id = ? AND status != 'failed'
@@ -490,7 +496,7 @@ export function getFeed(familyId) {
   );
 
   if (!message) {
-    return { family: shaped, message: null, synced_at: nowIso() };
+    return { family: shaped, message: null, completed_count: completedCount, synced_at: nowIso() };
   }
 
   const activity = getActivity(message.activity_id);
@@ -541,6 +547,7 @@ export function getFeed(familyId) {
         one('SELECT 1 AS x FROM documentation_notes WHERE message_id = ?', message.id)
       )
     },
+    completed_count: completedCount,
     synced_at: nowIso()
   };
 }

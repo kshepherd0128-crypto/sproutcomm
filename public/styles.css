@@ -14,9 +14,27 @@
   --amber-soft: #fdf1df;
   --red: #a12a2a;
   --red-soft: #fbeaea;
-  --shadow: 0 10px 24px rgba(20, 35, 26, 0.07);
-  --radius: 20px;
+  /* Visual system (redesign): 8-pt spacing scale, one card system, one
+     accent (dark green). Status hues are reserved for status only. */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --card-radius: 20px;
+  --card-shadow: 0 10px 24px rgba(20, 35, 26, 0.07);
+  --shadow: var(--card-shadow);
+  --radius: var(--card-radius);
+  --accent: var(--green-dark);
+  /* Type scale: 12 / 14 / 17 / 20 / 24 / 34 — nothing in between. */
+  --font-xs: 12px;
+  --font-sm: 14px;
+  --font-base: 17px;
+  --font-lg: 20px;
+  --font-xl: 24px;
+  --font-display: 34px;
   --tap: 56px;
+  /* F2: fixed bottom bar height the feed must clear, plus margin. */
+  --parent-bar-h: 152px;
 }
 
 * {
@@ -91,7 +109,7 @@ a {
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-2);
   padding: calc(12px + env(safe-area-inset-top)) 18px 12px;
   background: var(--green-dark);
   color: #f3f8ee;
@@ -115,7 +133,11 @@ a {
   flex: 1;
 }
 
+/* F4: family name and Exit keep real separation — the name flexes and
+   truncates, Exit keeps a full-size, visually distinct tap target. */
 .topbar .who {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 13px;
   color: #cfe3c2;
   text-align: end;
@@ -123,18 +145,21 @@ a {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 42vw;
+  padding-inline-end: var(--space-1);
 }
 
 .topbar .icon-btn {
-  min-width: 44px;
+  flex: none;
+  min-width: 48px;
   min-height: 44px;
   border-radius: 12px;
   color: #eaf4df;
   display: grid;
   place-items: center;
   font-size: 14px;
-  padding: 0 10px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
 }
 
 .topbar .icon-btn:hover {
@@ -176,8 +201,8 @@ a {
 .card {
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
   padding: 18px;
 }
 
@@ -434,6 +459,50 @@ select {
 
 /* ---------- family list ---------- */
 
+/* T1: advocate home is three headed sections on the 8-pt scale. */
+.advocate-sections {
+  gap: var(--space-3);
+}
+
+/* T1/T2: families as a card grid — one column on phones, two on wide. */
+.families-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+}
+
+.family-card .fc-activity {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.family-card .fc-activity-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.family-card .fc-activity-time {
+  flex: none;
+}
+
+.status-pill {
+  flex: none;
+}
+
+@media (min-width: 700px) {
+  #app:has(.advocate-layout) {
+    max-width: 920px;
+  }
+
+  .families-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 .family-card {
   display: flex;
   flex-direction: column;
@@ -514,7 +583,8 @@ select {
   flex-direction: column;
   gap: 14px;
   flex: 1;
-  padding-bottom: 152px;
+  /* F2: content clears the bottom bar by its height plus margin. */
+  padding-bottom: calc(var(--parent-bar-h) + var(--space-3));
 }
 
 .lang-bar {
@@ -574,6 +644,132 @@ select {
   line-height: 1.55;
   letter-spacing: -0.01em;
   white-space: pre-wrap;
+}
+
+/* F2: tonight's activity is one hero card — Listen first, then the
+   message, steps and prompt. The card itself carries the Done state;
+   there is no separate completed banner anymore. */
+.tonight-card .msg-body {
+  margin-top: var(--space-2);
+}
+
+.tonight-card.is-done {
+  border-color: #cfe6bc;
+  background: linear-gradient(180deg, #f7fbf1, var(--paper) 55%);
+}
+
+/* The hero keeps its normal card layout when it carries the Done state
+   (the .done-card class is kept for state hooks, not its centering). */
+.tonight-card.done-card {
+  display: block;
+  text-align: start;
+  align-items: stretch;
+  padding: 18px;
+}
+
+.done-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: var(--space-2);
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--green-soft);
+}
+
+.done-state .check-sm {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+
+.done-state .check-sm svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The hero also carries .done-card, whose sheet-sized .check rule would
+   otherwise win on source order — pin the inline check to its own size. */
+.tonight-card .done-state .check {
+  width: 32px;
+  height: 32px;
+  flex: none;
+}
+
+.tonight-card .done-state .check svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* F1: the Growing Sprout card + leaf-grow animation. */
+.sprout-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: linear-gradient(120deg, var(--green-soft), #f7fbf1);
+}
+
+.sprout-card .sprout-svg {
+  flex: none;
+}
+
+.sprout-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sprout-svg .sprout-leaf {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
+
+@keyframes leafGrow {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.sprout-leaf.grow {
+  animation: leafGrow 0.65s ease-out 0.15s both;
+}
+
+.sprout-celebrate {
+  display: grid;
+  place-items: center;
+}
+
+/* F4: Bangla/Arabic body text gets more air via a locale class on the
+   parent screen root. */
+.screen.locale-bn {
+  line-height: 1.65;
+}
+
+.screen.locale-ar {
+  line-height: 1.7;
+}
+
+.screen.locale-bn .activity-card .step,
+.screen.locale-bn .parent-msg .msg-body,
+.screen.locale-bn .activity-card .prompt {
+  line-height: 1.75;
+}
+
+.screen.locale-ar .activity-card .step,
+.screen.locale-ar .activity-card .prompt {
+  line-height: 1.85;
 }
 
 .parent-msg .msg-body[dir="rtl"] {
@@ -674,11 +870,17 @@ select {
   font-family: "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Polish pack: the bar is solid — feed content must never ghost through
+   it mid-scroll — with a soft shadow on its top edge. Padding is
+   unchanged, so the bar's height (and the F2 --parent-bar-h clearance
+   math in .feed) is exactly what it was. */
 .parent-actions {
   position: sticky;
   bottom: 0;
+  z-index: 9;
   padding: 12px 18px calc(14px + env(safe-area-inset-bottom));
-  background: linear-gradient(to top, var(--bg) 68%, rgba(251, 248, 241, 0));
+  background: var(--bg);
+  box-shadow: 0 -10px 24px rgba(20, 35, 26, 0.1);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -805,7 +1007,12 @@ select {
   gap: 8px;
 }
 
+/* F3: equal minimum widths so options wrap evenly in every language. */
+/* Polish pack: an icon sits beside the label (gap follows the inline
+   direction, so RTL pills mirror correctly); the label always stays. */
 .chip {
+  flex: 1 1 128px;
+  min-width: 128px;
   min-height: 48px;
   padding: 0 16px;
   border-radius: 999px;
@@ -817,6 +1024,12 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.chip svg {
+  flex: none;
 }
 
 .chip.selected {
@@ -880,8 +1093,58 @@ select {
   margin-top: 12px;
 }
 
+/* T3: auto-expanding message field (JS sets the height as you type). */
 .compose textarea {
   min-height: 96px;
+  max-height: 320px;
+  overflow-y: auto;
+  resize: none;
+  transition: height 0.12s ease;
+}
+
+/* T4: copy-friendly family link box + a button label that never wraps. */
+.link-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: #fbf6ea;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 6px 6px 6px 12px;
+}
+
+.link-box-text {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.link-copy {
+  flex: none;
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.btn-nowrap {
+  white-space: nowrap;
+  width: 100%;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .compose-preview {
