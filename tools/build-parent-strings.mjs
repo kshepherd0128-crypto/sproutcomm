@@ -83,7 +83,24 @@ const SOURCE = {
   sectionFamilies: 'Families',
   statusReplied: 'Replied',
   statusWaiting: 'Waiting',
-  statusDone: 'Done'
+  statusDone: 'Done',
+  // Build #2: chat-first thread + parent report. Templates keep their
+  // {child} / {n} placeholders through translation (validate enforces it).
+  yourAdvocate: 'Your family advocate',
+  familyFile: 'Family file of {child}',
+  saveMyReport: 'Save my report',
+  milestoneLead: 'You did it!',
+  milestoneNew: "{child} grew a new leaf — that's {n} finished!",
+  milestonePast: 'A new leaf grew for {child} — {n} activities finished!',
+  noteAddedTitle: 'Family engagement note added',
+  noteAddedBody: "Completed — kept in {child}'s family file.",
+  youLabel: 'You',
+  messagePlaceholder: 'Message or voice note…',
+  reportTitle: 'Family report of {child}',
+  reportActivities: 'Finished activities',
+  reportNone: 'No finished activities yet. The first leaf is on its way.',
+  printSave: 'Print / Save',
+  back: 'Back'
 };
 
 // The product name is a proper noun and is intentionally identical everywhere.
@@ -167,11 +184,17 @@ function validate(locale, id, value) {
   if (!SCRIPT[locale].test(value)) {
     throw new Error(`${locale}/${id}: no ${locale === 'ar' ? 'Arabic' : 'Bengali'} script: ${value}`);
   }
-  const latin = value.match(/[A-Za-z]{2,}/g);
-  if (latin) throw new Error(`${locale}/${id}: untranslated Latin text: ${latin.join(', ')} — ${value}`);
-  if (id === 'toastSavedItemsSent' && !value.includes('{n}')) {
-    throw new Error(`${locale}/${id}: lost the {n} placeholder: ${value}`);
+  // Template placeholders ({n}, {child}) are code, not untranslated text:
+  // they must survive translation verbatim, and they are exempt from the
+  // Latin check.
+  const placeholders = SOURCE[id].match(/\{\w+\}/g) ?? [];
+  for (const ph of placeholders) {
+    if (!value.includes(ph)) {
+      throw new Error(`${locale}/${id}: lost the ${ph} placeholder: ${value}`);
+    }
   }
+  const latin = value.replace(/\{\w+\}/g, '').match(/[A-Za-z]{2,}/g);
+  if (latin) throw new Error(`${locale}/${id}: untranslated Latin text: ${latin.join(', ')} — ${value}`);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

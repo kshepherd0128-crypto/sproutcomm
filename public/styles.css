@@ -1285,3 +1285,611 @@ select {
     transition: none !important;
   }
 }
+
+/* ================================================================== *
+ * Build #2 — chat-first parent thread (Concept D), reports, print.
+ * ================================================================== */
+
+/* Sticky chat head: topbar + the pinned language bar under it. */
+.chat-head {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.chat-head .topbar {
+  position: static;
+}
+
+.chat-head .lang-bar {
+  background: #eef3e7;
+  padding: 8px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chat-head .lang-switch {
+  background: #fff;
+}
+
+.chat-brand .advocate-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--lime);
+  color: var(--green-dark);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 15px;
+  flex: none;
+}
+
+.chat-id {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  min-width: 0;
+}
+
+.chat-id strong {
+  font-size: 17px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-id small {
+  color: #cfe3c2;
+  font-size: 12.5px;
+}
+
+/* Pinned family-file card: the parent's record home in the thread. */
+.file-card {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-2);
+  background: linear-gradient(120deg, var(--green-soft), #f7fbf1);
+}
+
+.file-card .sprout-svg {
+  flex: none;
+}
+
+.file-card-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+}
+
+.file-card-title {
+  font-weight: 800;
+  font-size: 17px;
+}
+
+.file-save {
+  min-height: 48px;
+  margin-top: 7px;
+}
+
+/* The thread itself. */
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.day-divider {
+  display: flex;
+  justify-content: center;
+}
+
+.day-divider span {
+  background: #efeadf;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 999px;
+}
+
+.bubble {
+  max-width: 88%;
+  border-radius: 18px;
+  padding: 12px 14px;
+  box-shadow: var(--card-shadow);
+}
+
+.bubble-adv {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  align-self: flex-start;
+  border-start-start-radius: 6px;
+}
+
+.bubble .msg-body {
+  font-size: 19px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.bubble .msg-body[dir="rtl"] {
+  text-align: right;
+  font-family: "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  font-size: 20px;
+  line-height: 1.7;
+}
+
+.bubble-time {
+  display: block;
+  text-align: end;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.bubble-wrap-you {
+  align-self: flex-end;
+  max-width: 88%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bubble-you {
+  background: var(--green);
+  color: #eaf4df;
+  border-start-end-radius: 6px;
+}
+
+.voice-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 2.5px;
+  height: 24px;
+}
+
+.wave span {
+  width: 3.5px;
+  border-radius: 2px;
+  background: #c7e8a8;
+  display: block;
+}
+
+.voice-dur {
+  font-weight: 700;
+  font-size: 14px;
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.bubble-you audio {
+  width: 100%;
+  height: 40px;
+  margin-top: 8px;
+}
+
+.voice-status {
+  font-size: 13px;
+  color: #cfe3c2;
+  margin-top: 6px;
+}
+
+.bubble-caption {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: end;
+  padding-inline-end: 4px;
+}
+
+/* Activity card in the thread: green outline, titled steps. */
+.thread-activity {
+  border: 1.5px solid #bcd6a8;
+}
+
+.step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.step-title {
+  font-weight: 700;
+}
+
+.step-detail {
+  font-size: 16px;
+  opacity: 0.82;
+}
+
+/* Sprout milestone message + A2 celebration. */
+.milestone {
+  align-self: center;
+  max-width: 94%;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: var(--green-soft);
+  border: 1px solid #cfe6bc;
+  color: var(--green-dark);
+  border-radius: 16px;
+  padding: 10px 14px;
+  font-size: 15px;
+  line-height: 1.4;
+  box-shadow: var(--card-shadow);
+}
+
+.milestone-sprout {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+
+.milestone-sprout .sprout-svg {
+  width: 34px;
+  height: 36px;
+}
+
+.milestone.celebrate .milestone-sprout svg {
+  transform-origin: bottom center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .milestone.celebrate .milestone-sprout svg {
+    animation: sproutBounce 0.9s ease-out 0.05s both;
+  }
+
+  .milestone.celebrate .milestone-sprout::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid var(--green);
+    opacity: 0;
+    animation: ringOut 1s ease-out 0.15s both;
+  }
+
+  /* A1: leaves grow in, staggered up the stem (delay set inline). */
+  .sprout-leaf.grow-in {
+    animation: leafGrow 0.55s ease-out both;
+  }
+
+  /* Card-entrance micro-transitions for thread items. */
+  .thread > * {
+    animation: threadIn 0.22s ease-out both;
+  }
+
+  .thread > *:nth-child(2) { animation-delay: 0.03s; }
+  .thread > *:nth-child(3) { animation-delay: 0.06s; }
+  .thread > *:nth-child(4) { animation-delay: 0.09s; }
+  .thread > *:nth-child(5) { animation-delay: 0.12s; }
+  .thread > *:nth-child(6) { animation-delay: 0.15s; }
+}
+
+@keyframes sproutBounce {
+  0% { transform: scale(0.55); }
+  55% { transform: scale(1.14); }
+  100% { transform: scale(1); }
+}
+
+@keyframes ringOut {
+  0% { transform: scale(0.55); opacity: 0.65; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+
+@keyframes threadIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* A tap anywhere skips the rest of the open animation. */
+html.anim-skip .sprout-leaf.grow-in {
+  animation: none !important;
+}
+
+/* File-note confirmation card. */
+.file-note-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--card-shadow);
+  padding: 13px 15px;
+}
+
+.fnc-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--amber-soft);
+  color: var(--amber);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.fnc-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 15px;
+  min-width: 0;
+}
+
+/* Input bar: mic pill + a field that opens the voice recorder (there is
+ * no parent text channel; the field never pretends to send text). */
+.input-bar {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.mic-pill {
+  flex: none;
+  border-radius: 999px;
+  padding: 0 16px;
+}
+
+.thread-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 56px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: #fffdf8;
+  color: var(--muted);
+  font-size: 16px;
+  padding: 0 18px;
+  text-align: start;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Advocate Reports list. */
+.report-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: start;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
+  padding: 14px 16px;
+}
+
+.report-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.report-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.report-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--green-dark);
+  flex: none;
+}
+
+/* ---------- print / save ---------- */
+
+.print-wrap {
+  flex: 1;
+  padding: 16px 18px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.print-toolbar {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.print-doc {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 28px 24px;
+  color: #111;
+  box-shadow: var(--card-shadow);
+}
+
+.print-doc h1 {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+  margin: 8px 0 4px;
+}
+
+.print-doc h2 {
+  font-size: 17px;
+  margin: 22px 0 10px;
+}
+
+.doc-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--green-dark);
+  font-weight: 700;
+}
+
+.doc-sub {
+  color: #444;
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.doc-sprout {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+}
+
+.doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.doc-item-date {
+  color: #555;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.doc-msg,
+.doc-note {
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.doc-msg-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.doc-msg p {
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.doc-reply {
+  margin-top: 8px;
+}
+
+.doc-foot {
+  margin-top: 20px;
+  color: #666;
+  font-size: 12px;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  #app {
+    max-width: none;
+    box-shadow: none;
+  }
+
+  .print-toolbar,
+  .toast {
+    display: none !important;
+  }
+
+  .print-wrap {
+    padding: 0;
+  }
+
+  .print-doc {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    color: #000;
+  }
+
+  .doc-msg,
+  .doc-note,
+  .doc-sprout {
+    break-inside: avoid;
+  }
+
+  .screen {
+    min-height: auto;
+  }
+}
+
+/* Build #2 capture fixes: the thread card's Done check keeps the small
+ * inline size (the generic .done-card rule must not inflate it), the
+ * pinned card's sprout gets real presence, and print doc heads don't
+ * squeeze their titles. */
+.thread-activity .done-state .check {
+  width: 32px;
+  height: 32px;
+  flex: none;
+}
+
+.thread-activity .done-state .check svg {
+  width: 16px;
+  height: 16px;
+}
+
+.file-card .sprout-svg {
+  width: 66px;
+  height: 70px;
+}
+
+.milestone-sprout .sprout-svg {
+  width: 40px;
+  height: 43px;
+}
+
+.report-action {
+  margin-top: 6px;
+}
+
+.doc-msg-head strong {
+  flex: 1;
+  min-width: 0;
+}
+
+.doc-msg-head span {
+  flex: none;
+  text-align: end;
+}

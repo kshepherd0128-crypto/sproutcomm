@@ -1,9 +1,8 @@
 // Parent-view UI strings, baked at build time.
 //
 // Source: tools/build-parent-strings.mjs. The Arabic and Bangla values were
-// produced once with the app's Spark translation path (muse-spark-1.3), then
-// given a short review pass for terminology consistency, and are literals
-// here. Nothing in this file calls the network at runtime.
+// produced once with the app's Spark translation path (muse-spark-1.3) and are
+// literals here. Nothing in this file calls the network at runtime.
 //
 // Shape: id -> { en, ar, bn }. Sylheti has no written UI strings on purpose:
 // it stays audio-first, and the switch offers English, Arabic and Bangla only.
@@ -66,7 +65,22 @@ export const PARENT_STRINGS = {
   "sectionFamilies": { en: "Families", ar: "العائلات", bn: "পরিবারগুলো" },
   "statusReplied": { en: "Replied", ar: "تم الرد", bn: "উত্তর দিয়েছে" },
   "statusWaiting": { en: "Waiting", ar: "في الانتظار", bn: "অপেক্ষমাণ" },
-  "statusDone": { en: "Done", ar: "تم", bn: "সম্পন্ন" }
+  "statusDone": { en: "Done", ar: "تم", bn: "সম্পন্ন" },
+  "yourAdvocate": { en: "Your family advocate", ar: "المدافع عن أسرتك", bn: "আপনার পারিবারিক সহায়ক" },
+  "familyFile": { en: "Family file of {child}", ar: "ملف عائلة {child}", bn: "{child} এর পারিবারিক ফাইল" },
+  "saveMyReport": { en: "Save my report", ar: "احفظ تقريري", bn: "আমার প্রতিবেদন সংরক্ষণ করুন" },
+  "milestoneLead": { en: "You did it!", ar: "لقد فعلتها!", bn: "তুমি পেরেছো!" },
+  "milestoneNew": { en: "{child} grew a new leaf — that's {n} finished!", ar: "أنبت {child} ورقة جديدة — ليصبح عدد الأوراق المكتملة {n}!", bn: "{child} একটি নতুন পাতা গজিয়েছে — মোট {n}টি শেষ হয়েছে!" },
+  "milestonePast": { en: "A new leaf grew for {child} — {n} activities finished!", ar: "نمت ورقة جديدة لـ {child} — تم إنجاز {n} من الأنشطة!", bn: "{child} এর জন্য একটি নতুন পাতা গজিয়েছে — {n}টি কার্যক্রম শেষ হয়েছে!" },
+  "noteAddedTitle": { en: "Family engagement note added", ar: "تمت إضافة ملاحظة إشراك الأسرة", bn: "পারিবারিক সম্পৃক্ততা নোট যোগ করা হয়েছে" },
+  "noteAddedBody": { en: "Completed — kept in {child}'s family file.", ar: "مكتمل — يُحفظ في ملف عائلة {child}.", bn: "সম্পন্ন — {child}-এর পারিবারিক ফাইলে রাখা হয়েছে।" },
+  "youLabel": { en: "You", ar: "أنت", bn: "আপনি" },
+  "messagePlaceholder": { en: "Message or voice note…", ar: "رسالة أو رسالة صوتية…", bn: "বার্তা বা ভয়েস নোট…" },
+  "reportTitle": { en: "Family report of {child}", ar: "تقرير الأسرة عن {child}", bn: "{child} এর পারিবারিক প্রতিবেদন" },
+  "reportActivities": { en: "Finished activities", ar: "الأنشطة المنجزة", bn: "সমাপ্ত কার্যক্রম" },
+  "reportNone": { en: "No finished activities yet. The first leaf is on its way.", ar: "لا توجد أنشطة مكتملة بعد. الورقة الأولى في الطريق.", bn: "এখনও কোনো সমাপ্ত কার্যক্রম নেই। প্রথম পাতাটি পথে রয়েছে।" },
+  "printSave": { en: "Print / Save", ar: "طباعة / حفظ", bn: "মুদ্রণ / সংরক্ষণ" },
+  "back": { en: "Back", ar: "رجوع", bn: "পেছনে" }
 };
 
 export const PARENT_LOCALES = ['en', 'ar', 'bn'];

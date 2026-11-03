@@ -69,8 +69,18 @@ const ICON = {
   mic: `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4"/></svg>`,
   check: `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
   doc: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>`,
-  clock: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`
+  clock: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
+  print: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="7"/></svg>`,
+  folder: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>`,
+  chevron: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>`
 };
+
+/* Decorative waveform bars for a parent voice bubble (the audio element
+ * inside the bubble is the real player; the bars are a visual cue only). */
+function waveBars() {
+  const heights = [10, 16, 22, 13, 19, 24, 15, 21, 11, 17, 23, 14, 18, 10];
+  return `<span class="wave" aria-hidden="true">${heights.map((h) => `<span style="height:${h}px"></span>`).join('')}</span>`;
+}
 
 /* Polish pack: figures beside the completion sheet's "who joined" labels
  * and a clock beside the minutes. The icons aid recognition for
@@ -120,7 +130,12 @@ const state = {
   complete: { open: false, participants: null, minutes: null, busy: false, error: null, done: false, queued: false, clientId: null },
   offline: false,
   pendingCount: 0,
-  localCompleted: null
+  localCompleted: null,
+  // Build #2 (chat-first): the message id whose milestone should play the
+  // A2 celebration when it lands in the thread, and whether the A1 open
+  // animation already ran this session.
+  justCompleted: null,
+  greeted: false
 };
 
 const SESSION_KEY = 'sproutcomm.session';
@@ -221,6 +236,140 @@ function fmtNum(value, lang = 'en') {
     return String(n);
   }
 }
+
+/** Time-of-day only, for thread bubbles and captions. */
+function fmtTime(iso, lang = 'en') {
+  if (!iso) return '';
+  return new Date(iso).toLocaleTimeString(DATE_LOCALE[lang] ?? DATE_LOCALE.en, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: lang !== 'bn'
+  });
+}
+
+/** Day-only label for the thread's day divider (no time of day). */
+function fmtDay(iso, lang = 'en') {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const today = new Date();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const t = stringsFor(lang);
+  if (d.toDateString() === today.toDateString()) return t.today;
+  if (new Date(today.getTime() - dayMs).toDateString() === d.toDateString()) return t.yesterday;
+  return d.toLocaleDateString(DATE_LOCALE[lang] ?? DATE_LOCALE.en, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  });
+}
+
+/** Fill {child} / {n} style placeholders in a baked UI string. */
+function tpl(text, vars) {
+  let out = String(text ?? '');
+  for (const [key, value] of Object.entries(vars)) {
+    out = out.split(`{${key}}`).join(String(value));
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * Build #2 — titled steps (the Concept C steal). A step string is
+ * split into a short bold lead (its own first clause) and the rest as
+ * detail. The split is always a prefix split of the family's own step
+ * text: title + detail together reproduce the original string, so no
+ * wording is invented and the split works in any script (Latin,
+ * Arabic ، ؛ ؟, Bangla । are all recognised as clause breaks).
+ * ------------------------------------------------------------------ */
+
+const STEP_CLAUSE = new Set([',', ':', ';', '،', '؛']);
+const STEP_SENTENCE = new Set(['.', '!', '?', '؟', '।']);
+
+function splitStep(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s) return { title: '', detail: '' };
+
+  // Candidate break points: just past a clause mark, or just past a
+  // sentence end that is followed by more text.
+  const breaks = [];
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (STEP_CLAUSE.has(ch)) breaks.push(i + 1);
+    else if (STEP_SENTENCE.has(ch) && i + 1 < s.length && /\s/.test(s[i + 1])) breaks.push(i + 1);
+  }
+  if (!breaks.length) return { title: s, detail: '' };
+
+  const MIN = 14;
+  const MAX = 68;
+  let cut = breaks[0];
+  for (const b of breaks) {
+    if (b > MAX) break;
+    cut = b;
+    if (cut >= MIN) break;
+  }
+  if (cut >= s.length) return { title: s, detail: '' };
+
+  const title = s.slice(0, cut).replace(/[,:;،؛.،\s]+$/u, '').trim();
+  const detail = s.slice(cut).replace(/^[\s,:;،؛]+/u, '').trim();
+  if (!title || !detail) return { title: s, detail: '' };
+  return { title, detail };
+}
+
+/* ------------------------------------------------------------------ *
+ * Build #2 — the parent's own completion log. The feed payload carries
+ * only the latest engagement, so the parent report's "finished
+ * activities" list is kept on the family's own phone: every time the
+ * feed shows a completed engagement it is recorded here (per family,
+ * keyed by message id). Presentation layer only — nothing is sent to
+ * the server, and the server's completed_count stays the total.
+ * ------------------------------------------------------------------ */
+
+const COMPLETIONS_PREFIX = 'sproutcomm.completions.';
+
+function completionLog(familyId) {
+  if (!familyId) return [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(COMPLETIONS_PREFIX + familyId) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function logCompletion(familyId, entry) {
+  if (!familyId || !entry?.message_id) return;
+  try {
+    const log = completionLog(familyId).filter((e) => e.message_id !== entry.message_id);
+    log.push(entry);
+    log.sort((a, b) => String(a.completed_at).localeCompare(String(b.completed_at)));
+    localStorage.setItem(COMPLETIONS_PREFIX + familyId, JSON.stringify(log.slice(-60)));
+  } catch {
+    /* private mode: the report falls back to the server total */
+  }
+}
+
+/* A1: the open animation runs once per browser session. */
+const GREET_KEY = 'sproutcomm.greeted';
+try {
+  state.greeted = sessionStorage.getItem(GREET_KEY) === '1';
+} catch {
+  state.greeted = false;
+}
+
+function markGreeted() {
+  state.greeted = true;
+  try {
+    sessionStorage.setItem(GREET_KEY, '1');
+  } catch {
+    /* session only */
+  }
+}
+
+/* Tap anywhere skips the rest of the open animation. */
+document.addEventListener(
+  'pointerdown',
+  () => document.documentElement.classList.add('anim-skip'),
+  { once: true }
+);
 
 function toast(message) {
   state.toast = message;
@@ -402,6 +551,19 @@ function renderAdvocate() {
       <div class="families-grid">
         ${!families ? '<div class="skeleton"></div><div class="skeleton"></div>' : families.map(renderFamilyCard).join('')}
       </div>
+
+      <div class="section-title">Reports</div>
+      <div class="stack reports-list">
+        ${!families ? '<div class="skeleton"></div>' : families.map((f) => `
+          <button class="report-row" data-action="open-report" data-family="${esc(f.id)}">
+            <span class="report-icon">${ICON.folder}</span>
+            <span class="report-meta">
+              <strong>${esc(f.family_name)}</strong>
+              <span class="small muted">${esc(f.child_name)} · ${f.note_count} 1302.50 note${f.note_count === 1 ? '' : 's'}${f.last_message_at ? ` · last activity ${esc(fmtDate(f.last_message_at))}` : ''}</span>
+              <span class="report-action">${ICON.print}<span>Print / Save PDF</span></span>
+            </span>
+          </button>`).join('')}
+      </div>
     </div>
   </div>`;
 }
@@ -519,6 +681,10 @@ function renderFamilyDetail() {
         <span class="tag amber">${d.stats.notes} 1302.50 note${d.stats.notes === 1 ? '' : 's'}</span>
       </div>
 
+      <button class="btn btn-secondary" style="align-self:flex-start" data-action="open-report" data-family="${esc(f.id)}">
+        ${ICON.print}<span>Print / Save PDF</span>
+      </button>
+
       ${f.access_path ? `
         <div class="card stack" style="padding:14px">
           <div class="row" style="justify-content:space-between">
@@ -616,17 +782,17 @@ function replyStatus(t, status) {
 /* One leaf shape: a pointed oval from its base on the stem to an
  * upturned tip, with a faint centre vein. Coordinates are rounded so the
  * generated markup stays compact. */
-function sproutLeaf(x, y, side, len, wid, fill, cls) {
+function sproutLeaf(x, y, side, len, wid, fill, cls, style = '') {
   const tipX = (x + side * len).toFixed(1);
   const tipY = (y - len * 0.42).toFixed(1);
   const upX = (x + side * len * 0.45).toFixed(1);
   const upY = (y - wid - len * 0.16).toFixed(1);
   const lowY = (y + wid * 0.55).toFixed(1);
   const veinY = (y - len * 0.2).toFixed(1);
-  return `<path class="${cls}" d="M${x} ${y} Q${upX} ${upY} ${tipX} ${tipY} Q${upX} ${lowY} ${x} ${y} Z" fill="${fill}" stroke="#0f4429" stroke-width="0.7" stroke-opacity="0.35"/><path d="M${x} ${y} Q${upX} ${veinY} ${tipX} ${tipY}" stroke="#0f4429" stroke-width="0.9" opacity="0.22" fill="none"/>`;
+  return `<path class="${cls}"${style ? ` style="${style}"` : ''} d="M${x} ${y} Q${upX} ${upY} ${tipX} ${tipY} Q${upX} ${lowY} ${x} ${y} Z" fill="${fill}" stroke="#0f4429" stroke-width="0.7" stroke-opacity="0.35"/><path d="M${x} ${y} Q${upX} ${veinY} ${tipX} ${tipY}" stroke="#0f4429" stroke-width="0.9" opacity="0.22" fill="none"/>`;
 }
 
-function sproutSvg(count, { animateLast = false } = {}) {
+function sproutSvg(count, { animateLast = false, greet = false } = {}) {
   const capped = Math.max(0, Math.min(Number(count) || 0, 12));
   const parts = [];
 
@@ -637,8 +803,10 @@ function sproutSvg(count, { animateLast = false } = {}) {
   if (capped === 0) {
     // Just planted: a short stem and the two seed leaves.
     parts.push('<path d="M30 60 C29.6 58 30.4 56.4 30 54.5" stroke="#16643a" stroke-width="3" stroke-linecap="round" fill="none"/>');
-    parts.push(sproutLeaf(30, 56.5, -1, 7.5, 3, '#7fb069', 'sprout-leaf'));
-    parts.push(sproutLeaf(30, 56.5, 1, 7.5, 3, '#16643a', 'sprout-leaf'));
+    // A1: on the session's first open, even a just-planted sprout unfurls.
+    const seedCls = greet ? 'sprout-leaf grow-in' : 'sprout-leaf';
+    parts.push(sproutLeaf(30, 56.5, -1, 7.5, 3, '#7fb069', seedCls, greet ? 'animation-delay:60ms' : ''));
+    parts.push(sproutLeaf(30, 56.5, 1, 7.5, 3, '#16643a', seedCls, greet ? 'animation-delay:160ms' : ''));
   } else {
     // A gently curved stem the leaves climb.
     parts.push('<path d="M30 60 C28.4 47 31.6 35 30 21" stroke="#16643a" stroke-width="3.4" stroke-linecap="round" fill="none"/>');
@@ -648,7 +816,11 @@ function sproutSvg(count, { animateLast = false } = {}) {
       const len = 14.5 - i * 0.4;
       const wid = 5.2 - i * 0.15;
       const grow = animateLast && i === capped - 1 ? ' grow' : '';
-      parts.push(sproutLeaf(30, y, side, len, wid, i % 2 ? '#7fb069' : '#16643a', `sprout-leaf${grow}`));
+      // A1: on the session's first open, every leaf grows in, staggered
+      // up the stem (~0.8s total). Later renders are still.
+      const greetCls = greet ? ' grow-in' : '';
+      const greetStyle = greet ? `animation-delay:${(i * 65).toFixed(0)}ms` : '';
+      parts.push(sproutLeaf(30, y, side, len, wid, i % 2 ? '#7fb069' : '#16643a', `sprout-leaf${grow}${greetCls}`, greetStyle));
     }
     if (capped >= 12) {
       // Full growth: a five-petal flower crowns the stem.
@@ -688,6 +860,86 @@ function renderSprout(t, count, uiLang) {
     </div>`;
 }
 
+/* ------------------------------------------------------------------ *
+ * Build #2 — the parent view is a chat thread (Concept D).
+ *
+ * Structure: chat header (advocate identity) + pinned language bar,
+ * a pinned family-file card (the sprout + Save my report live there),
+ * then the thread itself: day divider, the advocate's message bubble,
+ * the activity card, the parent's voice bubbles, sprout milestone
+ * messages and the file-note confirmation card. "We did it" pins above
+ * the input bar while tonight is uncompleted. The completion sheet
+ * itself is unchanged — F3 semantics are untouched.
+ * ------------------------------------------------------------------ */
+
+/** The demo advocate persona, as named on the advocate side. */
+const ADVOCATE_NAME = 'Marisol Vega';
+
+function advocateInitials(name) {
+  return name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+function renderChatHeader(t, childName) {
+  return `
+    <div class="topbar chat-topbar">
+      <span class="brand chat-brand">
+        <span class="advocate-avatar" aria-hidden="true">${esc(advocateInitials(ADVOCATE_NAME))}</span>
+        <span class="chat-id">
+          <strong>${esc(ADVOCATE_NAME)}</strong>
+          <small>${esc(t.yourAdvocate)}</small>
+        </span>
+      </span>
+      <span class="spacer"></span>
+      <button class="icon-btn" data-action="signout" aria-label="${esc(t.exitAria)}">${esc(t.exit)}</button>
+    </div>`;
+}
+
+function renderPinnedFileCard(t, feed, uiLang, displayCount, greet) {
+  const child = feed.family.child_name;
+  const caption = displayCount > 0
+    ? tpl(t.sproutFinished, { n: fmtNum(displayCount, uiLang) })
+    : t.sproutEmpty;
+  return `
+    <div class="card file-card">
+      ${sproutSvg(displayCount, { greet })}
+      <div class="file-card-meta">
+        <div class="file-card-title">${esc(tpl(t.familyFile, { child }))}</div>
+        <p class="small muted">${esc(feed.family.family_name)} · ${esc(t.growingSprout)} · ${esc(caption)}</p>
+        <button class="btn btn-secondary file-save" data-action="open-parent-report">
+          ${ICON.print}<span>${esc(t.saveMyReport)}</span>
+        </button>
+      </div>
+    </div>`;
+}
+
+function renderVoiceBubble(t, r, uiLang) {
+  const secs = Math.round((Number(r.duration_ms) || 0) / 1000);
+  return `
+    <div class="bubble-wrap-you">
+      <div class="bubble bubble-you reply-card">
+        ${r.audio_url ? `
+          <div class="voice-top">${waveBars()}${secs > 0 ? `<span class="voice-dur">${esc(formatSecs(secs))}</span>` : ''}</div>
+          <audio controls preload="metadata" src="${esc(r.audio_url)}"></audio>
+        ` : `<p class="small">${esc(t.stillUploading)}</p>`}
+        <p class="voice-status">${esc(replyStatus(t, r.status))}</p>
+      </div>
+      <div class="bubble-caption">${esc(t.youLabel)} · ${esc(fmtTime(r.created_at, uiLang))}</div>
+    </div>`;
+}
+
+function renderMilestone(t, feed, uiLang, { fresh, celebrate, greet }) {
+  const child = feed.family.child_name;
+  const n = fmtNum(feed.completed_count, uiLang);
+  const text = fresh
+    ? `<strong>${esc(t.milestoneLead)}</strong> ${esc(tpl(t.milestoneNew, { child, n }))}`
+    : esc(tpl(t.milestonePast, { child, n }));
+  return `
+    <div class="milestone ${celebrate ? 'celebrate' : ''}">
+      <span class="milestone-sprout">${sproutSvg(feed.completed_count, { animateLast: celebrate, greet })}</span>
+      <p>${text}</p>
+    </div>`;
+}
+
 function renderParent() {
   const feed = state.parentFeed;
   const session = state.session;
@@ -707,20 +959,42 @@ function renderParent() {
   }
 
   const m = feed.message;
+  // A1: the sprout grows in on the session's first thread render only.
+  const greet = !state.greeted;
+  if (greet) markGreeted();
+
+  const head = `
+    <div class="chat-head">
+      ${renderChatHeader(t, feed.family.child_name)}
+      ${renderLangSwitch(t, uiLang)}
+    </div>`;
+
+  const inputBar = `
+    <div class="parent-actions">
+      <div class="input-bar">
+        <button class="btn btn-secondary mic-pill" data-action="record" aria-label="${esc(t.voiceNote)}">
+          ${ICON.mic}<span>${esc(t.voiceNote)}</span>
+        </button>
+        <button class="thread-input" data-action="record" aria-label="${esc(t.voiceNote)}">
+          <span>${esc(t.messagePlaceholder)}</span>
+        </button>
+      </div>
+    </div>`;
 
   if (!m) {
     return `
       <div class="screen locale-${uiLang}" dir="${dir}" lang="${uiLang}">
-        ${topbar(t.appName, feed.family.child_name, bar)}
-        <div class="content">
-          ${renderLangSwitch(t, uiLang)}
-          ${renderSprout(t, feed.completed_count, uiLang)}
-          <div class="card done-card">
-            <div class="check">${ICON.leaf}</div>
-            <h2>${esc(feed.family.family_name)}</h2>
-            <p class="muted">${esc(t.noMessage)}</p>
+        ${head}
+        <div class="content feed">
+          ${renderPinnedFileCard(t, feed, uiLang, Number(feed.completed_count) || 0, greet)}
+          <div class="thread">
+            <div class="bubble bubble-adv">
+              <p class="msg-body">${esc(t.noMessage)}</p>
+            </div>
           </div>
         </div>
+        ${inputBar}
+        ${state.record.open ? renderRecorder(t) : ''}
       </div>`;
   }
 
@@ -730,18 +1004,15 @@ function renderParent() {
   const textMode = m.mode === 'text';
   const localPending = state.localCompleted === m.id;
   const done = m.status === 'completed' || localPending;
+  const displayCount = (Number(feed.completed_count) || 0) + (localPending && m.status !== 'completed' ? 1 : 0);
+  const celebrate = done && state.justCompleted === m.id;
+  const replies = [...(m.replies ?? [])].reverse();
 
   return `
   <div class="screen locale-${uiLang}" dir="${dir}" lang="${uiLang}">
-    ${topbar(t.appName, feed.family.child_name, bar)}
+    ${head}
     <div class="content feed">
-      ${renderLangSwitch(t, uiLang)}
-      <div class="lang-bar">
-        <span class="tag ${lang.dir === 'rtl' ? 'rtl' : ''}" lang="${esc(lang.code)}">${esc(languageName(t, lang.code, lang.nativeName))}</span>
-        <span class="small muted">${esc(fmtDate(m.created_at, uiLang))}</span>
-      </div>
-
-      ${renderSprout(t, feed.completed_count, uiLang)}
+      ${renderPinnedFileCard(t, feed, uiLang, displayCount, greet)}
 
       ${state.offline ? `<div class="notice warn">${esc(t.offlineNote)}</div>` : ''}
       ${state.pendingCount > 0 ? `
@@ -749,62 +1020,209 @@ function renderParent() {
           <span class="status-dot wait"></span>${esc(fmtNum(state.pendingCount, uiLang))} ${esc(t.waiting)}
         </div>` : ''}
 
-      <section class="card parent-msg activity-card tonight-card ${done ? 'done-card is-done' : ''}" dir="${dir}">
-        <div class="msg-meta">
-          <span>${esc(feed.family.family_name)}</span>
-          ${done || m.completed_at ? `<span class="tag">${esc(t.doneTag)}</span>` : ''}
-        </div>
-        <div class="row" style="justify-content:space-between;margin-bottom:8px">
-          <span class="eyebrow">${esc(t.activity)}</span>
-          <span class="small muted" style="display:flex;align-items:center;gap:5px">${ICON.clock}${esc(fmtNum(m.activity.minutes, uiLang))} ${esc(t.minutes)}</span>
-        </div>
-        <h2 dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.activity.title)}</h2>
-        ${done ? `
-          <div class="done-state">
-            <span class="check check-sm">${ICON.check}</span>
-            <p class="small muted">${esc(localPending ? t.savedOffline : t.completedNote)}</p>
-          </div>` : ''}
-        <button class="listen-btn ${state.speaking ? 'playing' : ''}" data-action="listen" type="button">
-          ${state.speaking ? ICON.stop : ICON.speaker}<span>${esc(t.listen)}</span>
-        </button>
-        ${textMode
-          ? `<p class="msg-body" dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.body ?? '')}</p>`
-          : `<p class="msg-body" style="font-size:17px;color:#5d6d63">${esc(t.voiceMessage)}</p>`}
-        <ol class="steps" dir="${esc(contentDir)}" lang="${esc(contentLang)}">
-          ${m.activity.steps.map((s) => `<li class="step"><span>${esc(s)}</span></li>`).join('')}
-        </ol>
-        ${m.activity.prompt ? `
-          <div class="prompt">
-            <div class="eyebrow" style="margin-bottom:4px">${esc(t.prompt)}</div>
-            <div dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.activity.prompt)}</div>
-          </div>` : ''}
-      </section>
+      <div class="thread">
+        <div class="day-divider"><span>${esc(fmtDay(m.created_at, uiLang))}</span></div>
 
-      ${m.replies?.length ? `
-        <div class="card reply-card" style="padding:14px">
+        ${textMode && m.body ? `
+          <div class="bubble bubble-adv">
+            <p class="msg-body" dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.body)}</p>
+            <span class="bubble-time">${esc(fmtTime(m.created_at, uiLang))}</span>
+          </div>` : ''}
+
+        <section class="card parent-msg activity-card thread-activity ${done ? 'done-card is-done' : ''}" dir="${dir}">
           <div class="row" style="justify-content:space-between;margin-bottom:8px">
-            <span class="eyebrow">${esc(t.voiceNote)}</span>
-            <span class="small muted">${esc(fmtDate(m.replies[0].created_at, uiLang))}</span>
+            <span class="eyebrow">${esc(t.activity)}</span>
+            <span class="row" style="gap:6px">
+              <span class="small muted" style="display:flex;align-items:center;gap:5px">${ICON.clock}${esc(fmtNum(m.activity.minutes, uiLang))} ${esc(t.minutes)}</span>
+              ${done ? `<span class="tag">${esc(t.doneTag)}</span>` : ''}
+            </span>
           </div>
-          ${m.replies[0].audio_url
-            ? `<audio controls preload="metadata" src="${esc(m.replies[0].audio_url)}" style="width:100%"></audio>`
-            : `<p class="small muted">${esc(t.stillUploading)}</p>`}
-          <p class="small muted" style="margin-top:8px">${esc(replyStatus(t, m.replies[0].status))}</p>
-        </div>` : ''}
+          <h2 dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.activity.title)}</h2>
+          <button class="listen-btn ${state.speaking ? 'playing' : ''}" data-action="listen" type="button">
+            ${state.speaking ? ICON.stop : ICON.speaker}<span>${esc(t.listen)}</span>
+          </button>
+          ${textMode
+            ? ''
+            : `<p class="msg-body" style="font-size:17px;color:#5d6d63">${esc(t.voiceMessage)}</p>`}
+          <ol class="steps" dir="${esc(contentDir)}" lang="${esc(contentLang)}">
+            ${m.activity.steps.map((s) => {
+              const { title, detail } = splitStep(s);
+              return `<li class="step"><span class="step-text"><strong class="step-title">${esc(title)}</strong>${detail ? `<span class="step-detail">${esc(detail)}</span>` : ''}</span></li>`;
+            }).join('')}
+          </ol>
+          ${m.activity.prompt ? `
+            <div class="prompt">
+              <div class="eyebrow" style="margin-bottom:4px">${esc(t.prompt)}</div>
+              <div dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.activity.prompt)}</div>
+            </div>` : ''}
+          ${done ? `
+            <div class="done-state">
+              <span class="check check-sm">${ICON.check}</span>
+              <p class="small muted">${esc(localPending ? t.savedOffline : t.completedNote)}</p>
+            </div>` : ''}
+        </section>
+
+        ${!done && displayCount > 0 ? renderMilestone(t, { ...feed, completed_count: displayCount }, uiLang, { fresh: false, celebrate: false, greet }) : ''}
+
+        ${replies.map((r) => renderVoiceBubble(t, r, uiLang)).join('')}
+
+        ${done ? renderMilestone(t, { ...feed, completed_count: displayCount }, uiLang, { fresh: true, celebrate, greet: false }) : ''}
+
+        ${done && m.has_note ? `
+          <div class="file-note-card">
+            <span class="fnc-icon">${ICON.folder}</span>
+            <span class="fnc-text">
+              <strong>${esc(t.noteAddedTitle)}</strong>
+              <span dir="${esc(contentDir)}" lang="${esc(contentLang)}">${esc(m.activity.title)}</span>
+              <span class="muted">${esc(tpl(t.noteAddedBody, { child: feed.family.child_name }))}</span>
+            </span>
+          </div>` : ''}
+      </div>
 
       ${!textMode ? `<div class="notice warn">${esc(t.voiceOnlyNotice)}</div>` : ''}
     </div>
 
     <div class="parent-actions">
-      <button class="btn btn-primary btn-block" data-action="complete" ${done ? 'disabled' : ''}>
-        ${ICON.check} ${esc(t.weDidIt)}
-      </button>
-      <button class="btn btn-secondary btn-block" data-action="record">
-        ${ICON.mic} ${esc(t.voiceNote)}
-      </button>
+      ${!done ? `
+        <button class="btn btn-primary btn-block" data-action="complete">
+          ${ICON.check} ${esc(t.weDidIt)}
+        </button>` : ''}
+      <div class="input-bar">
+        <button class="btn btn-secondary mic-pill" data-action="record" aria-label="${esc(t.voiceNote)}">
+          ${ICON.mic}<span>${esc(t.voiceNote)}</span>
+        </button>
+        <button class="thread-input" data-action="record" aria-label="${esc(t.voiceNote)}">
+          <span>${esc(t.messagePlaceholder)}</span>
+        </button>
+      </div>
     </div>
     ${state.record.open ? renderRecorder(t) : ''}
     ${state.complete.open ? renderComplete(t) : ''}
+  </div>`;
+}
+/* ------------------------------------------------------------------ *
+ * Build #2 — print / save (presentation layer only).
+ *
+ * Parent report (P2): a friendly one-pager rendered from the feed
+ * payload plus the device's own completion log. Advocate family file
+ * (P1): the compliance record rendered from the family-detail payload.
+ * Both are their own screens; the printed page is a clean black-on-
+ * white document (see @media print in styles.css) — the toolbar never
+ * reaches paper. The browser's print dialog provides Save as PDF.
+ * ------------------------------------------------------------------ */
+
+function printToolbar(backLabel, printLabel) {
+  return `
+    <div class="print-toolbar">
+      <button class="btn btn-ghost" data-action="print-back">${ICON.back}<span>${esc(backLabel)}</span></button>
+      <button class="btn btn-primary" data-action="print-now">${ICON.print}<span>${esc(printLabel)}</span></button>
+    </div>`;
+}
+
+function renderParentReport() {
+  const feed = state.parentFeed;
+  const uiLang = parentUiLang();
+  const t = stringsFor(uiLang);
+  const dir = t.dir;
+
+  if (!feed) {
+    return `
+      <div class="screen locale-${uiLang}" dir="${dir}" lang="${uiLang}">
+        <div class="print-wrap">${state.parentError ? errorNotice(state.parentError) : loadingCard()}</div>
+      </div>`;
+  }
+
+  const f = feed.family;
+  const count = Number(feed.completed_count) || 0;
+  const log = completionLog(f.id);
+
+  return `
+  <div class="screen locale-${uiLang}" dir="${dir}" lang="${uiLang}">
+    <div class="print-wrap">
+      ${printToolbar(t.back, t.printSave)}
+      <div class="print-doc parent-report">
+        <div class="doc-brand">${ICON.leaf}<span>${esc(t.appName)}</span></div>
+        <h1>${esc(tpl(t.reportTitle, { child: f.child_name }))}</h1>
+        <p class="doc-sub">${esc(f.family_name)} · ${esc(f.child_name)}, ${esc(fmtNum(f.child_age, uiLang))}</p>
+
+        <div class="doc-sprout">
+          ${sproutSvg(count)}
+          <div>
+            <div class="eyebrow">${esc(t.growingSprout)}</div>
+            <p>${esc(count > 0 ? tpl(t.sproutFinished, { n: fmtNum(count, uiLang) }) : t.sproutEmpty)}</p>
+          </div>
+        </div>
+
+        <h2>${esc(t.reportActivities)}</h2>
+        ${log.length === 0
+          ? `<p class="muted">${esc(t.reportNone)}</p>`
+          : `<ul class="doc-list">
+              ${log.map((e) => `
+                <li>
+                  <span class="doc-item-title" dir="auto">${esc(e.title)}</span>
+                  <span class="doc-item-date">${esc(fmtDate(e.completed_at, uiLang))}</span>
+                </li>`).join('')}
+            </ul>`}
+        <p class="doc-foot">${esc(t.appName)} · ${esc(fmtDate(new Date().toISOString(), uiLang))}</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderFamilyPrint() {
+  const d = state.familyDetail;
+
+  if (!d) {
+    return `
+      <div class="screen">
+        <div class="print-wrap">
+          ${state.familyError ? errorNotice(state.familyError) : loadingCard('Loading the family file…')}
+        </div>
+      </div>`;
+  }
+
+  const f = d.family;
+  return `
+  <div class="screen">
+    <div class="print-wrap">
+      ${printToolbar('Back', 'Print / Save PDF')}
+      <div class="print-doc family-print">
+        <div class="doc-brand">${ICON.leaf}<span>SproutComm</span></div>
+        <h1>Family file — ${esc(f.family_name)}</h1>
+        <p class="doc-sub">${esc(f.child_name)}, age ${esc(f.child_age)} · Home language: ${esc(f.language.englishName)}${f.language.mode === 'audio' ? ' · voice-only' : ''}</p>
+        <p class="doc-sub">${d.stats.engagements} engagements · ${d.stats.completed} completed · ${d.stats.replies} voice replies · ${d.stats.notes} documentation notes</p>
+        <p class="doc-sub">Printed ${esc(fmtDate(new Date().toISOString()))}</p>
+
+        <h2>Engagement history</h2>
+        ${d.messages.length === 0
+          ? '<p class="muted">No engagements yet for this family.</p>'
+          : d.messages.map((m) => `
+            <div class="doc-msg">
+              <div class="doc-msg-head">
+                <strong>${esc(m.activity?.title ?? 'Engagement')}</strong>
+                <span>${esc(fmtDate(m.created_at))} · ${m.status === 'completed' ? 'Completed' : 'Sent'}</span>
+              </div>
+              <p>${esc(m.body_en)}</p>
+              ${m.replies.length ? m.replies.map((r) => `
+                <p class="doc-reply"><strong>Voice reply (${esc(fmtDate(r.created_at))}):</strong> ${esc(r.transcript_en || r.transcript || '')}</p>
+              `).join('') : ''}
+            </div>`).join('')}
+
+        <h2>Documentation notes — HSPPS 1302.50</h2>
+        ${d.notes.length === 0
+          ? '<p class="muted">No documentation notes yet.</p>'
+          : d.notes.map((n) => `
+            <div class="doc-note">
+              <div class="doc-msg-head">
+                <strong>${esc(n.standard)}</strong>
+                <span>${esc(fmtDate(n.created_at))}${n.status !== 'ready' ? ` · ${esc(n.status)}` : ''}</span>
+              </div>
+              ${(n.body || '').trim()
+                ? `<div class="note-body">${formatNote(n.body)}</div>`
+                : `<p class="muted">${n.status === 'pending' ? 'Documentation in progress.' : 'Documentation could not be generated.'}</p>`}
+            </div>`).join('')}
+      </div>
+    </div>
   </div>`;
 }
 
@@ -1271,6 +1689,10 @@ async function confirmComplete() {
     });
     c.done = true;
     c.busy = false;
+    // A2: when the refreshed thread renders, this message's milestone
+    // plays the celebration as it arrives.
+    state.justCompleted = message.id;
+    setTimeout(() => { state.justCompleted = null; }, 8000);
     render();
     closeTimer = setTimeout(() => closeComplete({ refresh: true }), 1900);
   } catch (err) {
@@ -1288,6 +1710,14 @@ async function confirmComplete() {
       });
       state.offline = true;
       state.localCompleted = message.id;
+      state.justCompleted = message.id;
+      setTimeout(() => { state.justCompleted = null; }, 8000);
+      logCompletion(state.parentFeed.family.id, {
+        message_id: message.id,
+        title: message.activity?.title ?? '',
+        completed_at: new Date().toISOString(),
+        participants: message.participants ?? null
+      });
       c.queued = true;
       c.done = true;
       c.busy = false;
@@ -1477,6 +1907,17 @@ async function loadParentFeed() {
     }
   }
   state.parentLoading = false;
+  // Build #2: keep the parent's own completion log (for Save my report)
+  // in step with what the server says is finished.
+  const feedNow = state.parentFeed;
+  if (feedNow?.message?.status === 'completed') {
+    logCompletion(feedNow.family.id, {
+      message_id: feedNow.message.id,
+      title: feedNow.message.activity?.title ?? '',
+      completed_at: feedNow.message.completed_at,
+      participants: feedNow.message.participants ?? null
+    });
+  }
   await refreshOutboxCount();
   render();
   if (!state.offline) await flushOutbox({ quiet: true });
@@ -1512,16 +1953,19 @@ function render() {
   if (state.screen === 'entry') html = renderEntry();
   else if (state.screen === 'advocate') html = renderAdvocate();
   else if (state.screen === 'family') html = renderFamilyDetail();
+  else if (state.screen === 'print-parent') html = renderParentReport();
+  else if (state.screen === 'print-family') html = renderFamilyPrint();
   else html = renderParent();
 
   root.innerHTML = html;
 
   // The whole page follows the parent's reading language, including the
   // browser's own scrollbar and text direction. Advocate and entry views stay
-  // English/LTR.
-  const pageLang = state.screen === 'parent' ? parentUiLang() : 'en';
+  // English/LTR. The parent report follows the parent's language too.
+  const parentLike = state.screen === 'parent' || state.screen === 'print-parent';
+  const pageLang = parentLike ? parentUiLang() : 'en';
   document.documentElement.lang = pageLang;
-  document.documentElement.dir = state.screen === 'parent' ? (PARENT_LOCALE_DIR[pageLang] ?? 'ltr') : 'ltr';
+  document.documentElement.dir = parentLike ? (PARENT_LOCALE_DIR[pageLang] ?? 'ltr') : 'ltr';
 
   if (hadBodyFocus) {
     const body = document.getElementById('c-body');
@@ -1575,6 +2019,35 @@ document.addEventListener('click', async (event) => {
   if (action === 'open-family') {
     state.screen = 'family';
     await loadFamilyDetail(el.dataset.family);
+    return;
+  }
+
+  if (action === 'open-parent-report') {
+    state.screen = 'print-parent';
+    render();
+    window.scrollTo({ top: 0 });
+    return;
+  }
+
+  if (action === 'open-report') {
+    state.screen = 'print-family';
+    state.familyDetail = null;
+    state.familyError = null;
+    render();
+    window.scrollTo({ top: 0 });
+    await loadFamilyDetail(el.dataset.family);
+    return;
+  }
+
+  if (action === 'print-back') {
+    state.screen = state.screen === 'print-parent' ? 'parent' : 'family';
+    render();
+    window.scrollTo({ top: 0 });
+    return;
+  }
+
+  if (action === 'print-now') {
+    window.print();
     return;
   }
 
