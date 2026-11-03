@@ -118,6 +118,36 @@ db.exec(`
     error      TEXT,
     created_at TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS doc_entries (
+    id          TEXT PRIMARY KEY,
+    client_id   TEXT,                     -- idempotency key from the advocate client
+    family_id   TEXT NOT NULL REFERENCES families(id),
+    entry_type  TEXT NOT NULL,
+    note_text   TEXT NOT NULL,
+    outcome     TEXT,
+    occurred_at TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_doc_entries_client
+    ON doc_entries (client_id) WHERE client_id IS NOT NULL;
+
+  CREATE TABLE IF NOT EXISTS referrals (
+    id             TEXT PRIMARY KEY,
+    client_id      TEXT,                  -- idempotency key from the advocate client
+    family_id      TEXT NOT NULL REFERENCES families(id),
+    category       TEXT NOT NULL,
+    agency_name    TEXT NOT NULL,
+    date_referred  TEXT NOT NULL,
+    status         TEXT NOT NULL,
+    follow_up_date TEXT,
+    created_at     TEXT NOT NULL,
+    updated_at     TEXT NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_referrals_client
+    ON referrals (client_id) WHERE client_id IS NOT NULL;
 `);
 
 export function one(sql, ...params) {

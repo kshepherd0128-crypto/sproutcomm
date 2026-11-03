@@ -1893,3 +1893,30 @@ html.anim-skip .sprout-leaf.grow-in {
   flex: none;
   text-align: end;
 }
+
+/* Teacher documentation toolkit: doc log + referrals (advocate only). */
+.doc-form textarea {
+  min-height: 84px;
+}
+.doc-entry,
+.referral-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+input[type="date"],
+input[type="datetime-local"] {
+  width: 100%;
+  min-height: 54px;
+  border-radius: 14px;
+  border: 1.5px solid var(--line);
+  background: #fffdf8;
+  padding: 13px 14px;
+  font-size: 17px;
+  outline: none;
+}
+input[type="date"]:focus,
+input[type="datetime-local"]:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(22, 100, 58, 0.12);
+}

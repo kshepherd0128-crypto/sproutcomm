@@ -24,14 +24,17 @@ import { publicLanguages } from './languages.js';
 import { seedIfEmpty } from './seed.js';
 import {
   completeEngagement,
+  createDocEntry,
   createEngagement,
+  createReferral,
   getFamily,
   getFamilyByToken,
   getFamilyDetail,
   getFeed,
   listActivities,
   listFamilies,
-  retryNote
+  retryNote,
+  updateReferralStatus
 } from './store.js';
 import { ensureDocumentationColumns, ensureFamilyTokens, ensureVoiceNoteColumns, failOrphanedNotes } from './db.js';
 
@@ -188,6 +191,45 @@ route('GET', '/api/families/:id', async (req, params) => {
   const detail = getFamilyDetail(params.id);
   if (!detail) throw httpError(404, 'Family not found');
   return detail;
+});
+
+route('POST', '/api/families/:id/doc-entries', async (req, params) => {
+  requireSession(req, 'advocate');
+  const body = await readJson(req, 64 * 1024);
+  const result = createDocEntry({
+    familyId: params.id,
+    entryType: body.entry_type,
+    noteText: body.note_text,
+    outcome: body.outcome,
+    occurredAt: body.occurred_at,
+    clientId: body.client_id
+  });
+  return result;
+});
+
+route('POST', '/api/families/:id/referrals', async (req, params) => {
+  requireSession(req, 'advocate');
+  const body = await readJson(req, 64 * 1024);
+  const result = createReferral({
+    familyId: params.id,
+    category: body.category,
+    agencyName: body.agency_name,
+    dateReferred: body.date_referred,
+    status: body.status,
+    followUpDate: body.follow_up_date,
+    clientId: body.client_id
+  });
+  return result;
+});
+
+route('PATCH', '/api/families/:id/referrals/:referralId', async (req, params) => {
+  requireSession(req, 'advocate');
+  const body = await readJson(req, 16 * 1024);
+  return updateReferralStatus({
+    familyId: params.id,
+    referralId: params.referralId,
+    status: body.status
+  });
 });
 
 route('POST', '/api/parent/voice-notes', async (req) => {

@@ -552,6 +552,186 @@ export function getFeed(familyId) {
   };
 }
 
+/* ------------------------------------------------------------------ *
+ * Teacher / advocate documentation toolkit: doc log + referrals.
+ * Advocate-side only. Attempts are doc-log entries of call / text /
+ * visit types — there is no separate attempts system; the header
+ * documentation count is simply the doc-log length.
+ * ------------------------------------------------------------------ */
+
+export const DOC_ENTRY_TYPES = [
+  'Home visit',
+  'Phone call',
+  'Text or message',
+  'Office meeting',
+  'School event',
+  'Referral',
+  'Follow-up',
+  'Absence follow-up'
+];
+
+export const REFERRAL_CATEGORIES = [
+  'Housing',
+  'Food',
+  'Health',
+  'Mental health',
+  'Employment',
+  'Childcare',
+  'Other'
+];
+
+export const REFERRAL_STATUSES = ['Pending', 'Completed', 'Family declined', 'No response'];
+
+function shapeDocEntry(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    family_id: row.family_id,
+    entry_type: row.entry_type,
+    note_text: row.note_text,
+    outcome: row.outcome ?? null,
+    occurred_at: row.occurred_at,
+    occurred_display: displayTime(row.occurred_at),
+    created_at: row.created_at
+  };
+}
+
+function shapeReferral(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    family_id: row.family_id,
+    category: row.category,
+    agency_name: row.agency_name,
+    date_referred: row.date_referred,
+    status: row.status,
+    follow_up_date: row.follow_up_date ?? null,
+    created_at: row.created_at,
+    updated_at: row.updated_at
+  };
+}
+
+export function listDocEntries(familyId) {
+  return all(
+    'SELECT * FROM doc_entries WHERE family_id = ? ORDER BY occurred_at DESC, created_at DESC',
+    familyId
+  ).map(shapeDocEntry);
+}
+
+export function listReferrals(familyId) {
+  return all(
+    'SELECT * FROM referrals WHERE family_id = ? ORDER BY date_referred DESC, created_at DESC',
+    familyId
+  ).map(shapeReferral);
+}
+
+function cleanDate(value, field) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const datePart = raw.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart) || Number.isNaN(new Date(`${datePart}T12:00:00Z`).getTime())) {
+    throw httpError(400, `${field} is not a valid date`);
+  }
+  return datePart;
+}
+
+export function createDocEntry({ familyId, entryType, noteText, outcome, occurredAt, clientId }) {
+  const family = getFamily(familyId);
+  if (!family) throw httpError(404, 'Family not found');
+
+  // Idempotency: a retry of the same submit returns the original entry.
+  if (clientId) {
+    const existing = one('SELECT * FROM doc_entries WHERE client_id = ?', String(clientId));
+    if (existing) return { entry: shapeDocEntry(existing), duplicate: true };
+  }
+
+  const type = String(entryType || '').trim();
+  if (!DOC_ENTRY_TYPES.includes(type)) throw httpError(400, 'Choose a documentation type');
+
+  const note = String(noteText || '').trim();
+  if (note.length < 2) throw httpError(400, 'Note is empty');
+  if (note.length > 4000) throw httpError(400, 'Note is too long');
+
+  const outcomeText = String(outcome || '').trim().slice(0, 1000) || null;
+
+  let occurred = nowIso();
+  if (occurredAt) {
+    const parsed = new Date(occurredAt);
+    if (Number.isNaN(parsed.getTime())) throw httpError(400, 'Date and time are not valid');
+    occurred = parsed.toISOString();
+  }
+
+  const id = randomUUID();
+  const createdAt = nowIso();
+  run(
+    `INSERT INTO doc_entries
+       (id, client_id, family_id, entry_type, note_text, outcome, occurred_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    id,
+    clientId ? String(clientId) : null,
+    family.id,
+    type,
+    note,
+    outcomeText,
+    occurred,
+    createdAt
+  );
+  return { entry: shapeDocEntry(one('SELECT * FROM doc_entries WHERE id = ?', id)), duplicate: false };
+}
+
+export function createReferral({ familyId, category, agencyName, dateReferred, status, followUpDate, clientId }) {
+  const family = getFamily(familyId);
+  if (!family) throw httpError(404, 'Family not found');
+
+  if (clientId) {
+    const existing = one('SELECT * FROM referrals WHERE client_id = ?', String(clientId));
+    if (existing) return { referral: shapeReferral(existing), duplicate: true };
+  }
+
+  const cat = String(category || '').trim();
+  if (!REFERRAL_CATEGORIES.includes(cat)) throw httpError(400, 'Choose a service category');
+
+  const agency = String(agencyName || '').trim();
+  if (agency.length < 2) throw httpError(400, 'Agency name is empty');
+  if (agency.length > 300) throw httpError(400, 'Agency name is too long');
+
+  const referred = cleanDate(dateReferred, 'Date referred') || nowIso().slice(0, 10);
+  const followUp = followUpDate ? cleanDate(followUpDate, 'Follow-up date') : null;
+
+  const st = String(status || 'Pending').trim();
+  if (!REFERRAL_STATUSES.includes(st)) throw httpError(400, 'Choose a referral status');
+
+  const id = randomUUID();
+  const createdAt = nowIso();
+  run(
+    `INSERT INTO referrals
+       (id, client_id, family_id, category, agency_name, date_referred, status, follow_up_date, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id,
+    clientId ? String(clientId) : null,
+    family.id,
+    cat,
+    agency,
+    referred,
+    st,
+    followUp,
+    createdAt,
+    createdAt
+  );
+  return { referral: shapeReferral(one('SELECT * FROM referrals WHERE id = ?', id)), duplicate: false };
+}
+
+export function updateReferralStatus({ familyId, referralId, status }) {
+  const family = getFamily(familyId);
+  if (!family) throw httpError(404, 'Family not found');
+  const existing = one('SELECT * FROM referrals WHERE id = ? AND family_id = ?', referralId, familyId);
+  if (!existing) throw httpError(404, 'Referral not found');
+  const st = String(status || '').trim();
+  if (!REFERRAL_STATUSES.includes(st)) throw httpError(400, 'Choose a referral status');
+  run('UPDATE referrals SET status = ?, updated_at = ? WHERE id = ?', st, nowIso(), referralId);
+  return { referral: shapeReferral(one('SELECT * FROM referrals WHERE id = ?', referralId)) };
+}
+
 /** Advocate's view of one family: history, replies, documentation. */
 export function getFamilyDetail(familyId) {
   const family = getFamily(familyId);
@@ -625,15 +805,21 @@ export function getFamilyDetail(familyId) {
     event_id: n.event_id
   }));
 
+  const docEntries = listDocEntries(family.id);
+  const referrals = listReferrals(family.id);
+
   return {
     family: { ...familyShape(family), access_path: `/f/${family.access_token}` },
     messages,
     notes,
+    doc_entries: docEntries,
+    referrals,
     stats: {
       engagements: messages.filter((m) => m.status !== 'failed').length,
       completed: messages.filter((m) => m.status === 'completed').length,
       replies: messages.reduce((n, m) => n + m.replies.length, 0),
-      notes: notes.length
+      notes: notes.length,
+      documentation: docEntries.length
     }
   };
 }

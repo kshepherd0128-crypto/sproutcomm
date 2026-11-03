@@ -126,6 +126,11 @@ const state = {
   inboxKey: '',
   record: { open: false, phase: 'idle', seconds: 0, error: null, blob: null, previewUrl: null },
   retryingNote: null,
+  docForm: { busy: false, error: null, clientId: null },
+  docDraft: { entry_type: 'Home visit', occurred_at: '', note_text: '', outcome: '' },
+  referralForm: { busy: false, error: null, clientId: null },
+  referralDraft: { category: 'Housing', agency_name: '', date_referred: '', status: 'Pending', follow_up_date: '' },
+  referralUpdating: null,
   familyDetailJson: '',
   complete: { open: false, participants: null, minutes: null, busy: false, error: null, done: false, queued: false, clientId: null },
   offline: false,
@@ -261,6 +266,29 @@ function fmtDay(iso, lang = 'en') {
     month: 'short',
     day: 'numeric'
   });
+}
+
+/* Advocate documentation toolkit (English only, advocate side). */
+const DOC_ENTRY_TYPES = [
+  'Home visit',
+  'Phone call',
+  'Text or message',
+  'Office meeting',
+  'School event',
+  'Referral',
+  'Follow-up',
+  'Absence follow-up'
+];
+const REFERRAL_CATEGORIES = ['Housing', 'Food', 'Health', 'Mental health', 'Employment', 'Childcare', 'Other'];
+const REFERRAL_STATUSES = ['Pending', 'Completed', 'Family declined', 'No response'];
+
+function localDateTimeValue(date = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function localDateValue(date = new Date()) {
+  return localDateTimeValue(date).slice(0, 10);
 }
 
 /** Fill {child} / {n} style placeholders in a baked UI string. */
@@ -658,12 +686,46 @@ function renderNoteCard(n) {
     </div>`;
 }
 
+function renderDocEntry(e) {
+  return `
+    <div class="card doc-entry" style="padding:14px">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px">
+        <span class="tag">${esc(e.entry_type)}</span>
+        <span class="small muted">${esc(fmtDate(e.occurred_at))}</span>
+      </div>
+      <div class="thread-body">${esc(e.note_text)}</div>
+      ${e.outcome ? `<p class="small" style="margin-top:8px"><strong>Outcome / next step:</strong> ${esc(e.outcome)}</p>` : ''}
+    </div>`;
+}
+
+function renderReferral(r) {
+  return `
+    <div class="card referral-row" style="padding:14px">
+      <div class="row" style="justify-content:space-between;margin-bottom:8px;flex-wrap:wrap">
+        <span class="tag">${esc(r.category)}</span>
+        <span class="small muted">Referred ${esc(r.date_referred)}</span>
+      </div>
+      <div style="font-weight:700">${esc(r.agency_name)}</div>
+      ${r.follow_up_date ? `<p class="small muted" style="margin-top:4px">Follow-up: ${esc(r.follow_up_date)}</p>` : ''}
+      <div class="field" style="margin-top:10px">
+        <label for="ref-status-${esc(r.id)}">Status</label>
+        <select id="ref-status-${esc(r.id)}" data-role="referral-status" data-referral="${esc(r.id)}" ${state.referralUpdating === r.id ? 'disabled' : ''}>
+          ${REFERRAL_STATUSES.map((s) => `<option value="${esc(s)}" ${r.status === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+        </select>
+      </div>
+    </div>`;
+}
+
 function renderFamilyDetail() {
   const d = state.familyDetail;
   if (!d) {
     return `<div class="screen">${topbar('Family', '', { back: true })}<div class="content">${state.familyError ? errorNotice(state.familyError) : '<div class="skeleton"></div>'}</div></div>`;
   }
   const f = d.family;
+  const docEntries = d.doc_entries ?? [];
+  const referrals = d.referrals ?? [];
+  const docDraft = state.docDraft;
+  const refDraft = state.referralDraft;
 
   return `
   <div class="screen">
@@ -679,6 +741,7 @@ function renderFamilyDetail() {
         <span class="tag plain">${d.stats.completed} completed</span>
         <span class="tag plain">${d.stats.replies} voice repl${d.stats.replies === 1 ? 'y' : 'ies'}</span>
         <span class="tag amber">${d.stats.notes} 1302.50 note${d.stats.notes === 1 ? '' : 's'}</span>
+        <span class="tag plain">${d.stats.documentation ?? (d.doc_entries?.length ?? 0)} documentation entr${(d.stats.documentation ?? (d.doc_entries?.length ?? 0)) === 1 ? 'y' : 'ies'}</span>
       </div>
 
       <button class="btn btn-secondary" style="align-self:flex-start" data-action="open-report" data-family="${esc(f.id)}">
@@ -709,6 +772,70 @@ function renderFamilyDetail() {
       ${d.notes.length === 0
         ? '<div class="empty">No documentation yet. Notes appear here after a family confirms an activity.</div>'
         : d.notes.map(renderNoteCard).join('')}
+
+      <div class="section-title">Documentation log</div>
+      <form class="card stack doc-form" data-form="doc-entry">
+        <div class="field">
+          <label for="doc-type">Type</label>
+          <select id="doc-type" name="entry_type" required>
+            ${DOC_ENTRY_TYPES.map((t) => `<option value="${esc(t)}" ${docDraft.entry_type === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label for="doc-when">Date and time</label>
+          <input id="doc-when" name="occurred_at" type="datetime-local" value="${esc(docDraft.occurred_at || localDateTimeValue())}" />
+        </div>
+        <div class="field">
+          <label for="doc-note">Note</label>
+          <textarea id="doc-note" name="note_text" required rows="3" placeholder="What happened?">${esc(docDraft.note_text)}</textarea>
+        </div>
+        <div class="field">
+          <label for="doc-outcome">Outcome / next step (optional)</label>
+          <input id="doc-outcome" name="outcome" type="text" value="${esc(docDraft.outcome)}" placeholder="e.g. Will call again Thursday" />
+        </div>
+        ${errorNotice(state.docForm.error)}
+        <button class="btn btn-primary btn-block" type="submit" ${state.docForm.busy ? 'disabled' : ''}>
+          ${state.docForm.busy ? '<span class="spinner"></span> Saving…' : 'Add to log'}
+        </button>
+      </form>
+      ${docEntries.length === 0
+        ? '<div class="empty">No documentation log entries yet.</div>'
+        : docEntries.map(renderDocEntry).join('')}
+
+      <div class="section-title">Referrals</div>
+      <form class="card stack referral-form" data-form="referral">
+        <div class="field">
+          <label for="ref-category">Service category</label>
+          <select id="ref-category" name="category" required>
+            ${REFERRAL_CATEGORIES.map((c) => `<option value="${esc(c)}" ${refDraft.category === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label for="ref-agency">Agency name</label>
+          <input id="ref-agency" name="agency_name" type="text" required value="${esc(refDraft.agency_name)}" placeholder="Agency or provider" />
+        </div>
+        <div class="field">
+          <label for="ref-date">Date referred</label>
+          <input id="ref-date" name="date_referred" type="date" value="${esc(refDraft.date_referred || localDateValue())}" />
+        </div>
+        <div class="field">
+          <label for="ref-status-new">Status</label>
+          <select id="ref-status-new" name="status">
+            ${REFERRAL_STATUSES.map((s) => `<option value="${esc(s)}" ${refDraft.status === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label for="ref-followup">Follow-up date (optional)</label>
+          <input id="ref-followup" name="follow_up_date" type="date" value="${esc(refDraft.follow_up_date)}" />
+        </div>
+        ${errorNotice(state.referralForm.error)}
+        <button class="btn btn-primary btn-block" type="submit" ${state.referralForm.busy ? 'disabled' : ''}>
+          ${state.referralForm.busy ? '<span class="spinner"></span> Saving…' : 'Add referral'}
+        </button>
+      </form>
+      ${referrals.length === 0
+        ? '<div class="empty">No referrals yet for this family.</div>'
+        : referrals.map(renderReferral).join('')}
     </div>
   </div>`;
 }
@@ -1190,7 +1317,7 @@ function renderFamilyPrint() {
         <div class="doc-brand">${ICON.leaf}<span>SproutComm</span></div>
         <h1>Family file — ${esc(f.family_name)}</h1>
         <p class="doc-sub">${esc(f.child_name)}, age ${esc(f.child_age)} · Home language: ${esc(f.language.englishName)}${f.language.mode === 'audio' ? ' · voice-only' : ''}</p>
-        <p class="doc-sub">${d.stats.engagements} engagements · ${d.stats.completed} completed · ${d.stats.replies} voice replies · ${d.stats.notes} documentation notes</p>
+        <p class="doc-sub">${d.stats.engagements} engagements · ${d.stats.completed} completed · ${d.stats.replies} voice replies · ${d.stats.notes} documentation notes · ${d.stats.documentation ?? (d.doc_entries?.length ?? 0)} documentation entries · ${(d.referrals?.length ?? 0)} referrals</p>
         <p class="doc-sub">Printed ${esc(fmtDate(new Date().toISOString()))}</p>
 
         <h2>Engagement history</h2>
@@ -1220,6 +1347,31 @@ function renderFamilyPrint() {
               ${(n.body || '').trim()
                 ? `<div class="note-body">${formatNote(n.body)}</div>`
                 : `<p class="muted">${n.status === 'pending' ? 'Documentation in progress.' : 'Documentation could not be generated.'}</p>`}
+            </div>`).join('')}
+
+        <h2>Documentation log</h2>
+        ${(d.doc_entries ?? []).length === 0
+          ? '<p class="muted">No documentation log entries yet.</p>'
+          : (d.doc_entries ?? []).map((e) => `
+            <div class="doc-note">
+              <div class="doc-msg-head">
+                <strong>${esc(e.entry_type)}</strong>
+                <span>${esc(e.occurred_display || fmtDate(e.occurred_at))}</span>
+              </div>
+              <p>${esc(e.note_text)}</p>
+              ${e.outcome ? `<p style="margin-top:6px"><strong>Outcome / next step:</strong> ${esc(e.outcome)}</p>` : ''}
+            </div>`).join('')}
+
+        <h2>Referrals</h2>
+        ${(d.referrals ?? []).length === 0
+          ? '<p class="muted">No referrals yet.</p>'
+          : (d.referrals ?? []).map((r) => `
+            <div class="doc-note">
+              <div class="doc-msg-head">
+                <strong>${esc(r.category)} — ${esc(r.agency_name)}</strong>
+                <span>${esc(r.date_referred)} · ${esc(r.status)}</span>
+              </div>
+              ${r.follow_up_date ? `<p>Follow-up: ${esc(r.follow_up_date)}</p>` : ''}
             </div>`).join('')}
       </div>
     </div>
@@ -1879,10 +2031,29 @@ async function loadFamilyDetail(id) {
   try {
     state.familyDetail = await api(`/api/families/${encodeURIComponent(id)}`);
     state.familyDetailJson = JSON.stringify(state.familyDetail);
+    if (!state.docForm.clientId) state.docForm.clientId = crypto.randomUUID();
+    if (!state.referralForm.clientId) state.referralForm.clientId = crypto.randomUUID();
   } catch (err) {
     state.familyError = err;
   }
   render();
+}
+
+async function changeReferralStatus(referralId, status) {
+  const familyId = state.familyDetail?.family?.id;
+  if (!familyId || !referralId || state.referralUpdating) return;
+  state.referralUpdating = referralId;
+  render();
+  try {
+    await api(`/api/families/${encodeURIComponent(familyId)}/referrals/${encodeURIComponent(referralId)}`, {
+      method: 'PATCH',
+      body: { status }
+    });
+  } catch {
+    toast('Could not update the referral status');
+  }
+  state.referralUpdating = null;
+  await loadFamilyDetail(familyId);
 }
 
 async function loadParentFeed() {
@@ -2201,6 +2372,85 @@ document.addEventListener('submit', async (event) => {
       state.sending = false;
       render();
     }
+    return;
+  }
+
+  if (kind === 'doc-entry') {
+    const familyId = state.familyDetail?.family?.id;
+    if (!familyId || state.docForm.busy) return;
+    if (!state.docForm.clientId) state.docForm.clientId = crypto.randomUUID();
+    const entryType = form.querySelector('[name=entry_type]').value;
+    const occurredRaw = form.querySelector('[name=occurred_at]').value;
+    const noteText = form.querySelector('[name=note_text]').value;
+    const outcome = form.querySelector('[name=outcome]').value;
+    state.docDraft = { entry_type: entryType, occurred_at: occurredRaw, note_text: noteText, outcome };
+    state.docForm.busy = true;
+    state.docForm.error = null;
+    render();
+    try {
+      await api(`/api/families/${encodeURIComponent(familyId)}/doc-entries`, {
+        method: 'POST',
+        body: {
+          entry_type: entryType,
+          note_text: noteText,
+          outcome: outcome || undefined,
+          occurred_at: occurredRaw ? new Date(occurredRaw).toISOString() : undefined,
+          client_id: state.docForm.clientId
+        }
+      });
+      state.docForm.busy = false;
+      state.docForm.clientId = crypto.randomUUID();
+      state.docDraft = { entry_type: 'Home visit', occurred_at: '', note_text: '', outcome: '' };
+      await loadFamilyDetail(familyId);
+    } catch (err) {
+      state.docForm.busy = false;
+      state.docForm.error = err;
+      render();
+    }
+    return;
+  }
+
+  if (kind === 'referral') {
+    const familyId = state.familyDetail?.family?.id;
+    if (!familyId || state.referralForm.busy) return;
+    if (!state.referralForm.clientId) state.referralForm.clientId = crypto.randomUUID();
+    const category = form.querySelector('[name=category]').value;
+    const agencyName = form.querySelector('[name=agency_name]').value;
+    const dateReferred = form.querySelector('[name=date_referred]').value;
+    const status = form.querySelector('[name=status]').value;
+    const followUp = form.querySelector('[name=follow_up_date]').value;
+    state.referralDraft = {
+      category,
+      agency_name: agencyName,
+      date_referred: dateReferred,
+      status,
+      follow_up_date: followUp
+    };
+    state.referralForm.busy = true;
+    state.referralForm.error = null;
+    render();
+    try {
+      await api(`/api/families/${encodeURIComponent(familyId)}/referrals`, {
+        method: 'POST',
+        body: {
+          category,
+          agency_name: agencyName,
+          date_referred: dateReferred || undefined,
+          status,
+          follow_up_date: followUp || undefined,
+          client_id: state.referralForm.clientId
+        }
+      });
+      state.referralForm.busy = false;
+      state.referralForm.clientId = crypto.randomUUID();
+      state.referralDraft = { category: 'Housing', agency_name: '', date_referred: '', status: 'Pending', follow_up_date: '' };
+      await loadFamilyDetail(familyId);
+    } catch (err) {
+      state.referralForm.busy = false;
+      state.referralForm.error = err;
+      render();
+    }
+    return;
   }
 });
 
@@ -2208,10 +2458,32 @@ document.addEventListener('input', (event) => {
   if (event.target.id === 'c-body') {
     state.compose.body = event.target.value;
     growCompose(event.target);
+    return;
+  }
+  const docFormEl = event.target.closest('form[data-form="doc-entry"]');
+  if (docFormEl && event.target.name) {
+    state.docDraft[event.target.name] = event.target.value;
+    return;
+  }
+  const refFormEl = event.target.closest('form[data-form="referral"]');
+  if (refFormEl && event.target.name) {
+    state.referralDraft[event.target.name] = event.target.value;
   }
 });
 
-document.addEventListener('change', (event) => {
+document.addEventListener('change', async (event) => {
+  if (event.target.matches('[data-role="referral-status"]')) {
+    await changeReferralStatus(event.target.dataset.referral, event.target.value);
+    return;
+  }
+  const docFormEl = event.target.closest('form[data-form="doc-entry"]');
+  if (docFormEl && event.target.name) {
+    state.docDraft[event.target.name] = event.target.value;
+  }
+  const refFormEl = event.target.closest('form[data-form="referral"]');
+  if (refFormEl && event.target.name) {
+    state.referralDraft[event.target.name] = event.target.value;
+  }
   if (event.target.matches('[data-role="audio-file"]')) {
     const file = event.target.files?.[0];
     if (!file) return;

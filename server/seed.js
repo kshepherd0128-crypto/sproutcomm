@@ -149,6 +149,8 @@ export function seedIfEmpty({ force = false } = {}) {
     if (force) {
       db.exec(`
         DELETE FROM documentation_notes;
+        DELETE FROM doc_entries;
+        DELETE FROM referrals;
         DELETE FROM completion_events;
         DELETE FROM voice_notes;
         DELETE FROM message_translations;
